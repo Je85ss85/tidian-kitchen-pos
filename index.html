@@ -10,16 +10,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700;900&family=Noto+Sans+TC:wght@400;500;600&family=Rozha+One&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <script src="https://cdn.tailwindcss.com"></script>
 
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom": "https://esm.sh/react-dom@18.2.0",
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-    "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime"
-  }
-}
-</script>
+<script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
 
@@ -47,33 +41,47 @@
 window.SUPABASE_URL = "https://xtswnyiqhayaclpdlbxk.supabase.co";
 window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0c3dueWlxaGF5YWNscGRsYnhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4ODQ5NDgsImV4cCI6MjEwMjQ2MDk0OH0.-CjHAiE1ghJemJjNgxPhr--3LE_STICZlNNyP4cgG8w";
 
+// 員工模式 PIN 碼：內場/報表/QR 頁面要輸入這組密碼才能看到。
+// 換成你自己想要的 4 位數字（或任意字串），之後想改隨時回來改這一行就好。
+window.STAFF_PIN = "8888";
+
 </script>
 
-<script type="text/babel" data-presets="react" data-type="module">
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import ReactDOM from "react-dom/client";
-import {
-  ShoppingCart,
-  ChefHat,
-  BarChart3,
-  Plus,
-  Minus,
-  Check,
-  Clock,
-  Banknote,
-  Landmark,
-  Mountain,
-  RefreshCw,
-  Sparkles,
-  Flame,
-  X,
-  Trash2,
-  AlertCircle,
-  QrCode,
-  Copy,
-} from "https://esm.sh/lucide-react@0.294.0?external=react,react-dom";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import QRCodeLib from "https://esm.sh/qrcode@1.5.3";
+<script type="text/babel" data-presets="react">
+/* ------------------------------------------------------------------ */
+/*  執行環境：全部改用傳統 <script> 全域變數（不用 ESM import），       */
+/*  是為了在舊版 Safari / 有安裝廣告或隱私封鎖套件的瀏覽器上都能正常跑。  */
+/* ------------------------------------------------------------------ */
+const { useState, useEffect, useRef, useCallback } = React;
+const { createClient } = window.supabase;
+const QRCodeLib = window.QRCode;
+
+/* 圖示：手刻極簡線條 icon，不依賴 lucide-react（避免額外一個可能被擋掉的 CDN 套件） */
+function Icon({ children, size = 16, color, style, className }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color, flexShrink: 0, ...style }} className={className}>
+      {children}
+    </svg>
+  );
+}
+const ShoppingCart = (props) => (<Icon {...props}><circle cx="9" cy="20" r="1.4" fill="currentColor" stroke="none" /><circle cx="18" cy="20" r="1.4" fill="currentColor" stroke="none" /><path d="M2.5 3h2l2.4 12.2a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L21 8H6" /></Icon>);
+const ChefHat = (props) => (<Icon {...props}><path d="M6 18h12" /><path d="M7 18v-5" /><path d="M17 18v-5" /><path d="M6 13a4 4 0 0 1-1-7.9A4 4 0 0 1 12 4a4 4 0 0 1 7 1.1A4 4 0 0 1 18 13" /></Icon>);
+const BarChart3 = (props) => (<Icon {...props}><line x1="4" y1="20" x2="20" y2="20" /><line x1="7" y1="17" x2="7" y2="11" /><line x1="12" y1="17" x2="12" y2="6" /><line x1="17" y1="17" x2="17" y2="14" /></Icon>);
+const Plus = (props) => (<Icon {...props}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></Icon>);
+const Minus = (props) => (<Icon {...props}><line x1="5" y1="12" x2="19" y2="12" /></Icon>);
+const Check = (props) => (<Icon {...props}><polyline points="4 12 9 17 20 6" /></Icon>);
+const Banknote = (props) => (<Icon {...props}><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="3" /></Icon>);
+const Landmark = (props) => (<Icon {...props}><line x1="3" y1="21" x2="21" y2="21" /><line x1="5" y1="21" x2="5" y2="10" /><line x1="10" y1="21" x2="10" y2="10" /><line x1="14" y1="21" x2="14" y2="10" /><line x1="19" y1="21" x2="19" y2="10" /><polygon points="12 3 21 8 3 8" /></Icon>);
+const Mountain = (props) => (<Icon {...props}><path d="M3 20 L9 8 L13 15 L16 10 L21 20 Z" /></Icon>);
+const RefreshCw = (props) => (<Icon {...props}><path d="M21 12a9 9 0 0 1-15.3 6.4L3 16" /><path d="M3 12a9 9 0 0 1 15.3-6.4L21 8" /><polyline points="3 21 3 16 8 16" /><polyline points="21 3 21 8 16 8" /></Icon>);
+const Sparkles = (props) => (<Icon {...props}><path d="M11 3 L12.6 8 L18 9.5 L12.6 11 L11 16 L9.4 11 L4 9.5 L9.4 8 Z" /><path d="M18 15 L18.8 17.3 L21 18 L18.8 18.7 L18 21 L17.2 18.7 L15 18 L17.2 17.3 Z" /></Icon>);
+const Flame = (props) => (<Icon {...props}><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-1-2-1-2 1 4-1 5-3 5a4 4 0 0 1-4-4c0-4 3-4 2-6z" /></Icon>);
+const X = (props) => (<Icon {...props}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></Icon>);
+const Trash2 = (props) => (<Icon {...props}><polyline points="3 6 5 6 21 6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></Icon>);
+const AlertCircle = (props) => (<Icon {...props}><circle cx="12" cy="12" r="9" /><line x1="12" y1="7" x2="12" y2="13" /><line x1="12" y1="16.5" x2="12" y2="16.51" /></Icon>);
+const QrCode = (props) => (<Icon {...props}><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><line x1="14" y1="14" x2="14" y2="17" /><line x1="17" y1="14" x2="21" y2="14" /><line x1="14" y1="21" x2="17" y2="21" /><line x1="19" y1="17" x2="21" y2="17" /><line x1="19" y1="19" x2="21" y2="19" /><line x1="21" y1="19" x2="21" y2="21" /></Icon>);
+const Copy = (props) => (<Icon {...props}><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></Icon>);
+const Lock = (props) => (<Icon {...props}><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></Icon>);
 
 /* ------------------------------------------------------------------ */
 /*  雲端連線：Supabase（取代原本只能在 Claude 對話裡用的 window.storage） */
@@ -159,6 +167,23 @@ async function updateOrderPayment(orderId, payment) {
   const { error } = await sb.from("orders").update({ payment }).eq("id", orderId);
   if (error) console.error("更新付款方式失敗", error);
 }
+async function deleteOrder(orderId) {
+  if (!sb) return { error: new Error("Supabase 尚未設定") };
+  // Supabase 對於「RLS 政策沒開放刪除」這種情況不會回傳 error，
+  // 而是刪除 0 筆、回傳成功 —— 所以要用 .select() 檢查有沒有真的刪到東西，
+  // data 是空陣列就代表其實沒刪掉（多半是權限問題），要當成失敗處理。
+  const { data, error } = await sb.from("orders").delete().eq("id", orderId).select();
+  if (error) {
+    console.error("刪除訂單失敗", error);
+    return { error };
+  }
+  if (!data || data.length === 0) {
+    const blocked = new Error("刪除失敗：可能是資料庫權限（RLS）還沒開放刪除，或這筆訂單已經不存在");
+    console.error("刪除訂單失敗", blocked);
+    return { error: blocked };
+  }
+  return { error: null };
+}
 
 /* ------------------------------------------------------------------ */
 /*  餐點照片：從 /images 資料夾讀取（避免整個檔案塞進超大 base64 字串） */
@@ -182,29 +207,29 @@ const PROTEINS = [
 
 const CURRY_BASES = {
   chicken: [
-    { id: "butter", name: "濃郁奶香雞咖哩", en: "Butter Chicken", price: 300, desc: "奶香濃厚層次分明，最多人點的招牌必吃。", featured: true, badge: "人氣No.1", needsPairing: true, photo: IMG_CURRY },
-    { id: "tikka", name: "不簡單烤雞肉咖哩", en: "Chicken Tikka Masala", price: 300, desc: "基底咖哩醬加了鮮奶油提味，與番茄翻炒，口感更香濃，回味無窮。", featured: true, needsPairing: true },
-    { id: "daal", name: "印式扁豆燉雞肉", en: "Daal Chicken", price: 280, desc: "印度家常扁豆泥與雞肉慢燉，口感似馬鈴薯醬，超級適合配飯沾餅。", needsPairing: true },
-    { id: "palak", name: "菠醬雞肉綠咖哩", en: "Palak Chicken", price: 280, desc: "運用大量菠菜，現做打成泥，與雞肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
+    { id: "butter", name: "濃郁奶香雞咖哩", en: "Butter Chicken", price: 330, desc: "奶香濃厚層次分明，最多人點的招牌必吃。", featured: true, badge: "人氣No.1", needsPairing: true, photo: IMG_CURRY },
+    { id: "tikka", name: "不簡單烤雞肉咖哩", en: "Chicken Tikka Masala", price: 330, desc: "基底咖哩醬加了鮮奶油提味，與番茄翻炒，口感更香濃，回味無窮。", featured: true, needsPairing: true },
+    { id: "daal", name: "印式扁豆燉雞肉", en: "Daal Chicken", price: 310, desc: "印度家常扁豆泥與雞肉慢燉，口感似馬鈴薯醬，超級適合配飯沾餅。", needsPairing: true },
+    { id: "palak", name: "菠醬雞肉綠咖哩", en: "Palak Chicken", price: 310, desc: "運用大量菠菜，現做打成泥，與雞肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
   ],
   beef: [
-    { id: "classic", name: "經典藏印咖哩牛", en: "Beef Curry", price: 300, desc: "數種香料與帶骨牛肉同時熬出的咖哩醬底，肉質Q軟嫩牙，濃郁化在嘴中。", featured: true, needsPairing: true },
-    { id: "daal", name: "印式扁豆燉牛", en: "Daal Beef", price: 300, desc: "印度家常扁豆泥與牛肉慢燉，口感似馬鈴薯醬，每口都吃得到家鄉味。", needsPairing: true },
-    { id: "palak", name: "菠醬綠咖哩牛", en: "Palak Beef", price: 300, desc: "運用大量菠菜現打成泥，再與牛肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
-    { id: "keema", name: "碎炒牛肉咖哩", en: "Keema Curry", price: 300, desc: "主廚快火爆炒出碎絞肉香氣，與馬鈴薯燉煮出濃厚的肉咖哩，相當下飯。", needsPairing: true },
-    { id: "coconut", name: "南洋椰香牛肉", en: "Coconut Beef", price: 300, desc: "加入南洋椰奶原汁，就像奔放在印度洋上，熱情的一道菜。", needsPairing: true },
+    { id: "classic", name: "經典藏印咖哩牛", en: "Beef Curry", price: 330, desc: "數種香料與帶骨牛肉同時熬出的咖哩醬底，肉質Q軟嫩牙，濃郁化在嘴中。", featured: true, needsPairing: true },
+    { id: "daal", name: "印式扁豆燉牛", en: "Daal Beef", price: 330, desc: "印度家常扁豆泥與牛肉慢燉，口感似馬鈴薯醬，每口都吃得到家鄉味。", needsPairing: true },
+    { id: "palak", name: "菠醬綠咖哩牛", en: "Palak Beef", price: 330, desc: "運用大量菠菜現打成泥，再與牛肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
+    { id: "keema", name: "碎炒牛肉咖哩", en: "Keema Curry", price: 330, desc: "主廚快火爆炒出碎絞肉香氣，與馬鈴薯燉煮出濃厚的肉咖哩，相當下飯。", needsPairing: true },
+    { id: "coconut", name: "南洋椰香牛肉", en: "Coconut Beef", price: 330, desc: "加入南洋椰奶原汁，就像奔放在印度洋上，熱情的一道菜。", needsPairing: true },
   ],
   mutton: [
-    { id: "classic", name: "經典藏印咖哩羊", en: "Mutton Curry", price: 330, desc: "數種香料與帶骨羊肉同時熬出的咖哩醬底，肉質Q軟嫩牙，濃郁化在嘴中。", featured: true, needsPairing: true },
-    { id: "daal", name: "印式扁豆燉羊", en: "Daal Mutton", price: 330, desc: "印度家常扁豆泥與羊肉慢燉，口感似馬鈴薯醬，每口都吃得到家鄉味。", needsPairing: true },
-    { id: "palak", name: "菠醬綠咖哩羊", en: "Palak Mutton", price: 330, desc: "運用大量菠菜現打成泥，再與羊肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
+    { id: "classic", name: "經典藏印咖哩羊", en: "Mutton Curry", price: 360, desc: "數種香料與帶骨羊肉同時熬出的咖哩醬底，肉質Q軟嫩牙，濃郁化在嘴中。", featured: true, needsPairing: true },
+    { id: "daal", name: "印式扁豆燉羊", en: "Daal Mutton", price: 360, desc: "印度家常扁豆泥與羊肉慢燉，口感似馬鈴薯醬，每口都吃得到家鄉味。", needsPairing: true },
+    { id: "palak", name: "菠醬綠咖哩羊", en: "Palak Mutton", price: 360, desc: "運用大量菠菜現打成泥，再與羊肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
   ],
   veg: [
-    { id: "creamy_paneer", name: "濃郁奶香帕尼咖哩", en: "Creamy Butter Paneer", price: 340, desc: "手工乳酪塊以鮮奶油與腰果醬燉煮，綿密香甜，蔬食者的濃郁新選擇。", featured: true, badge: "新品", needsPairing: true },
-    { id: "palak_paneer", name: "綠菠菜起司咖哩", en: "Palak Paneer", price: 330, desc: "大量菠菜現打成泥加上高原豆腐乳酪，口感Q軟咀嚼著乳清香，清爽不油膩。", featured: true, needsPairing: true },
-    { id: "daal", name: "熱蒜印度扁豆", en: "Daal Curry", price: 300, desc: "印度人日常吃的一道料理，扁豆泥與番茄燉煮，超適合配飯沾餅，最具代表的印度家常菜。", needsPairing: true },
-    { id: "mixed", name: "什錦綜合蔬菜", en: "Mixed Vegetable Curry", price: 320, desc: "帶有香香的新鮮綜合時蔬，蔬菜含水量較高，與濃郁咖哩醬搭配起來清爽溫順不膩口。", needsPairing: true },
-    { id: "aloo", name: "花椰菜烤炒洋芋", en: "Aloo Gobi", price: 300, desc: "數種香料快火翻炒著花椰菜與馬鈴薯，實在意想不到的食材組合。", needsPairing: true },
+    { id: "creamy_paneer", name: "濃郁奶香帕尼咖哩", en: "Creamy Butter Paneer", price: 370, desc: "手工乳酪塊以鮮奶油與腰果醬燉煮，綿密香甜，蔬食者的濃郁新選擇。", featured: true, badge: "新品", needsPairing: true },
+    { id: "palak_paneer", name: "綠菠菜起司咖哩", en: "Palak Paneer", price: 360, desc: "大量菠菜現打成泥加上高原豆腐乳酪，口感Q軟咀嚼著乳清香，清爽不油膩。", featured: true, needsPairing: true },
+    { id: "daal", name: "熱蒜印度扁豆", en: "Daal Curry", price: 330, desc: "印度人日常吃的一道料理，扁豆泥與番茄燉煮，超適合配飯沾餅，最具代表的印度家常菜。", needsPairing: true },
+    { id: "mixed", name: "什錦綜合蔬菜", en: "Mixed Vegetable Curry", price: 350, desc: "帶有香香的新鮮綜合時蔬，蔬菜含水量較高，與濃郁咖哩醬搭配起來清爽溫順不膩口。", needsPairing: true },
+    { id: "aloo", name: "花椰菜烤炒洋芋", en: "Aloo Gobi", price: 330, desc: "數種香料快火翻炒著花椰菜與馬鈴薯，實在意想不到的食材組合。", needsPairing: true },
   ],
 };
 
@@ -297,9 +322,9 @@ const DRINK_CHOICES = [
   { label: "可樂", extra: 0 },
   { label: "雪碧", extra: 0 },
   { label: "無糖綠茶", extra: 0 },
-  { label: "招牌香料奶茶（熱）", extra: 70 },
-  { label: "招牌香料奶茶（冰）", extra: 70 },
-  { label: "酥油茶", extra: 70 },
+  { label: "招牌香料奶茶（熱）", extra: 0 },
+  { label: "招牌香料奶茶（冰）", extra: 0 },
+  { label: "酥油茶", extra: 0 },
 ];
 const LASSI_CHOICES = ["原味", "香蕉", "蜂蜜", "玫瑰", "芒果"].map((label) => ({ label, extra: 0 }));
 const NAAN_CHOICES = [
@@ -315,14 +340,14 @@ const COMBO_TIERS = [
     id: "comboA", tier: "A", name: "招牌吃法", price: 90, desc: "泰香飯＋烤餅＋飲料", ribbon: "🔥 多數人這樣點",
     subChoices: [
       { key: "naan", label: "烤餅口味", options: NAAN_CHOICES },
-      { key: "drink", label: "飲料口味（招牌奶茶／酥油茶需加價）", options: DRINK_CHOICES },
+      { key: "drink", label: "飲料口味", options: DRINK_CHOICES },
     ],
   },
   {
     id: "comboB", tier: "B", name: "尊爵吃法", price: 220, desc: "泰香飯＋烤餅＋飲料＋優格奶昔", ribbon: "👑 CP值最高",
     subChoices: [
       { key: "naan", label: "烤餅口味", options: NAAN_CHOICES },
-      { key: "drink", label: "飲料口味（招牌奶茶／酥油茶需加價）", options: DRINK_CHOICES },
+      { key: "drink", label: "飲料口味", options: DRINK_CHOICES },
       { key: "lassi", label: "奶昔口味", options: LASSI_CHOICES },
     ],
   },
@@ -442,6 +467,35 @@ function NoticeBox({ children }) {
   );
 }
 
+/* 點一下就會短暫變綠色＋打勾的小工具，給「加價購」跟「其他飲品」那種整排都能點的按鈕用 */
+function useAddFlash(duration = 1000) {
+  const [added, setAdded] = useState(false);
+  const trigger = () => {
+    setAdded(true);
+    setTimeout(() => setAdded(false), duration);
+  };
+  return [added, trigger];
+}
+
+/* 統一的「加入」按鈕：點下去會短暫變綠色＋打勾，讓客人清楚知道真的加進購物車了 */
+function AddButton({ onAdd, label = "加入" }) {
+  const [added, setAdded] = useState(false);
+  const handleClick = () => {
+    onAdd();
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1000);
+  };
+  return (
+    <button
+      onClick={handleClick}
+      className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full"
+      style={{ background: added ? "var(--juniper)" : "var(--maroon)", color: "var(--paper)", transition: "background .15s ease" }}
+    >
+      {added ? (<><Check size={13} /> 已加入</>) : (<><Plus size={13} /> {label}</>)}
+    </button>
+  );
+}
+
 /* 餐點卡：支援單一價格，或多口味／部位 variants 選擇後再加入購物車 */
 function DishCard({ item, onAdd, featuredLabel, cat }) {
   const hasVariants = Array.isArray(item.variants) && item.variants.length > 0;
@@ -508,11 +562,39 @@ function DishCard({ item, onAdd, featuredLabel, cat }) {
       </div>
       <div className="flex items-center justify-between mt-3 pt-2" style={{ borderTop: "1px dashed var(--line)" }}>
         <span style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="text-sm font-semibold">{fmt(price)}</span>
-        <button onClick={handleAdd} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "var(--maroon)", color: "var(--paper)" }}>
-          <Plus size={13} /> 加入
-        </button>
+        <AddButton onAdd={handleAdd} />
       </div>
     </div>
+  );
+}
+
+/* 加價購推薦那一排：整條都可以點，點下去文字會變「✓ 已加入」並閃綠色 */
+function QuickAddRow({ name, price, onAdd }) {
+  const [added, trigger] = useAddFlash();
+  return (
+    <button
+      onClick={() => { onAdd(); trigger(); }}
+      className="flex items-center justify-between text-xs px-3 py-2 rounded-lg"
+      style={{ background: added ? "var(--juniper)" : "var(--cream)", transition: "background .15s ease" }}
+    >
+      <span style={{ color: added ? "var(--paper)" : "var(--ink)" }}>{added ? `✓ 已加入：${name}` : name}</span>
+      <span style={{ fontFamily: "var(--font-mono)", color: added ? "var(--paper)" : "var(--maroon)" }} className="font-semibold">+{price}</span>
+    </button>
+  );
+}
+
+/* 其他飲品那種小卡片：點下去卡片會閃綠色＋打勾 */
+function QuickAddChip({ name, price, onAdd }) {
+  const [added, trigger] = useAddFlash();
+  return (
+    <button
+      onClick={() => { onAdd(); trigger(); }}
+      className="chip-btn text-left card p-3"
+      style={{ background: added ? "var(--juniper)" : "var(--paper)", borderColor: added ? "var(--juniper)" : "var(--line)", transition: "background .15s ease" }}
+    >
+      <p className="text-sm font-medium flex items-center gap-1" style={{ color: added ? "var(--paper)" : "var(--ink)" }}>{added && <Check size={12} />} {name}</p>
+      <p style={{ fontFamily: "var(--font-mono)", color: added ? "var(--paper)" : "var(--maroon)" }} className="text-sm mt-1">{fmt(price)}</p>
+    </button>
   );
 }
 
@@ -584,9 +666,7 @@ function ComboTierCard({ tier, onAdd }) {
       ))}
       <div className="flex items-center justify-between mt-3 pt-2" style={{ borderTop: "1px dashed var(--line)" }}>
         <p style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="text-base font-bold">+{total}</p>
-        <button onClick={handleAdd} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "var(--maroon)", color: "var(--paper)" }}>
-          <Plus size={13} /> 加入
-        </button>
+        <AddButton onAdd={handleAdd} />
       </div>
     </div>
   );
@@ -695,7 +775,7 @@ function PairingModal({ sourceName, onConfirm, onCancel, onSkip }) {
 }
 
 /* 內場出單卡：進來就能直接勾選品項，全部勾完（或手動）按一下就完成出餐 */
-function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment }) {
+function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment, onDelete }) {
   const allDone = o.items.length > 0 && o.items.every((i) => i.done);
   const grouped = {};
   o.items.forEach((i) => {
@@ -703,13 +783,23 @@ function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment }) {
     if (!grouped[c]) grouped[c] = [];
     grouped[c].push(i);
   });
+  const handleDelete = () => {
+    if (window.confirm(`確定要刪除第 ${o.table} 桌這張訂單嗎？這個動作無法復原。`)) {
+      onDelete(o.id);
+    }
+  };
   return (
     <div className="ticket p-3.5">
       <div className="flex items-center justify-between mb-1.5">
         <span style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-lg font-bold">第 {o.table} 桌</span>
-        <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: elapsed.color, color: "var(--paper)" }}>
-          {elapsed.mins} 分鐘
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: elapsed.color, color: "var(--paper)" }}>
+            {elapsed.mins} 分鐘
+          </span>
+          <button onClick={handleDelete} title="刪除這張訂單" className="p-1 rounded opacity-60" style={{ color: "var(--maroon)" }}>
+            <Trash2 size={14} />
+          </button>
+        </div>
       </div>
       <p style={{ fontFamily: "var(--font-mono)" }} className="text-xs opacity-60 mb-2">
         #{o.id.slice(-6)}．{new Date(o.createdAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
@@ -830,21 +920,74 @@ function QrBoard() {
 }
 
 function TableQrCard({ table, origin, copied, onCopy }) {
-  const canvasRef = useRef(null);
+  const boxRef = useRef(null);
   const url = `${origin}?table=${table}`;
   useEffect(() => {
-    if (canvasRef.current) {
-      QRCodeLib.toCanvas(canvasRef.current, url, { width: 168, margin: 1, color: { dark: "#3B2E22", light: "#FBF3E3" } }).catch(() => {});
+    if (boxRef.current) {
+      boxRef.current.innerHTML = "";
+      new QRCodeLib(boxRef.current, {
+        text: url,
+        width: 168,
+        height: 168,
+        colorDark: "#3B2E22",
+        colorLight: "#FBF3E3",
+        correctLevel: QRCodeLib.CorrectLevel.M,
+      });
     }
   }, [url]);
   return (
     <div className="card p-3 flex flex-col items-center text-center">
       <p style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-sm font-bold mb-2">第 {table} 桌</p>
-      <canvas ref={canvasRef} className="rounded-md" style={{ border: "1px solid var(--line)" }} />
+      <div ref={boxRef} className="rounded-md overflow-hidden" style={{ border: "1px solid var(--line)", width: 168, height: 168 }} />
       <p className="text-[10px] mt-2 break-all opacity-60" style={{ color: "var(--ink)", fontFamily: "var(--font-mono)" }}>{url}</p>
       <button onClick={() => onCopy(url, table)} className="mt-2 flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: copied ? "var(--juniper)" : "var(--cream)", color: copied ? "var(--paper)" : "var(--ink)" }}>
         <Copy size={11} /> {copied ? "已複製" : "複製連結"}
       </button>
+    </div>
+  );
+}
+
+/* 員工模式 PIN 輸入視窗：只有網址加上 ?staff=1 才會跳出，顧客平常完全不會看到這個畫面 */
+function StaffPinModal({ onSubmit, onCancel }) {
+  const [pin, setPin] = useState("");
+  const [wrong, setWrong] = useState(false);
+  const inputRef = useRef(null);
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const submit = () => {
+    const ok = onSubmit(pin);
+    if (!ok) {
+      setWrong(true);
+      setPin("");
+      setTimeout(() => setWrong(false), 1200);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(59,46,34,.7)" }}>
+      <div className="card w-full sm:max-w-xs p-6 slide-up text-center">
+        <Lock size={28} style={{ color: "var(--maroon)", margin: "0 auto" }} />
+        <h3 style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-lg font-bold mt-2 mb-1">員工模式</h3>
+        <p className="text-xs mb-4 opacity-70" style={{ color: "var(--ink)" }}>輸入 PIN 碼進入內場出單／報表／桌卡 QR</p>
+        <input
+          ref={inputRef}
+          type="password"
+          inputMode="numeric"
+          value={pin}
+          onChange={(e) => setPin(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+          className="w-full text-center text-lg tracking-[0.3em] px-3 py-2.5 rounded-md border mb-2"
+          style={{ borderColor: wrong ? "var(--maroon)" : "var(--line)", background: "var(--cream)", color: "var(--ink)" }}
+          placeholder="••••"
+        />
+        {wrong && <p className="text-xs mb-2" style={{ color: "var(--maroon)" }}>PIN 碼不對，再試一次</p>}
+        <button onClick={submit} className="w-full py-2.5 rounded-md text-sm font-bold mb-2" style={{ background: "var(--maroon)", color: "var(--paper)" }}>
+          進入
+        </button>
+        <button onClick={onCancel} className="w-full text-xs py-1 opacity-50" style={{ color: "var(--ink)" }}>
+          取消，回到點餐頁
+        </button>
+      </div>
     </div>
   );
 }
@@ -861,9 +1004,13 @@ function SupabaseSetupBanner() {
 /*  App                                                                */
 /* ------------------------------------------------------------------ */
 
+const STAFF_UNLOCK_KEY = "tidian_staff_unlocked";
+const STAFF_PIN = window.STAFF_PIN || "8888";
+
 function App() {
   const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const urlTable = params.get("table");
+  const staffRequested = params.get("staff") === "1";
 
   const [tab, setTab] = useState("order");
   const [table, setTable] = useState(urlTable ? Number(urlTable) : null);
@@ -879,17 +1026,45 @@ function App() {
   const [showAddonUpsell, setShowAddonUpsell] = useState(false);
   const prevNewCount = useRef(0);
 
+  /* ---------------- 員工模式：顧客只看得到點餐頁，內場/報表/QR 要輸入 PIN 才會出現 ---------------- */
+  const [staffUnlocked, setStaffUnlocked] = useState(() => {
+    try { return localStorage.getItem(STAFF_UNLOCK_KEY) === "1"; } catch { return false; }
+  });
+  const [showPinPrompt, setShowPinPrompt] = useState(staffRequested && !staffUnlocked);
+
+  useEffect(() => {
+    if (!staffUnlocked && tab !== "order") setTab("order");
+  }, [staffUnlocked, tab]);
+
+  const unlockStaff = () => {
+    try { localStorage.setItem(STAFF_UNLOCK_KEY, "1"); } catch {}
+    setStaffUnlocked(true);
+    setShowPinPrompt(false);
+    if (window.history?.replaceState) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("staff");
+      window.history.replaceState({}, "", url);
+    }
+  };
+  const lockStaff = () => {
+    try { localStorage.removeItem(STAFF_UNLOCK_KEY); } catch {}
+    setStaffUnlocked(false);
+    setTab("order");
+  };
+
   const refresh = useCallback(async () => {
+    if (!staffUnlocked) return;
     const o = await fetchBoardOrders();
     setOrders(o);
-  }, []);
+  }, [staffUnlocked]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
   /* 即時同步：Supabase Realtime 推播，訂單一有異動廚房畫面立刻更新；
-     另外保留 20 秒安全網輪詢，避免 WebSocket 斷線時漏單 */
+     另外保留 20 秒安全網輪詢，避免 WebSocket 斷線時漏單。
+     只有員工模式解鎖時才會訂閱／拉取訂單資料，顧客的裝置完全不會碰到其他桌的訂單內容。 */
   useEffect(() => {
-    if (!sb) return;
+    if (!sb || !staffUnlocked) return;
     const channel = sb
       .channel("orders-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => { refresh(); })
@@ -899,7 +1074,7 @@ function App() {
       sb.removeChannel(channel);
       clearInterval(safetyNet);
     };
-  }, [refresh]);
+  }, [refresh, staffUnlocked]);
 
   useEffect(() => {
     const newCount = orders.filter((o) => o.status === "active").length;
@@ -1010,6 +1185,14 @@ function App() {
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, payment: method } : o)));
     await updateOrderPayment(id, method);
   };
+  const removeOrder = async (id) => {
+    const { error } = await deleteOrder(id);
+    if (error) {
+      alert("刪除失敗：資料庫還沒開放刪除權限。請到 Supabase 的 SQL Editor 重新執行一次 supabase-schema.sql（裡面已經加了刪除的權限設定）。");
+      return;
+    }
+    setOrders((prev) => prev.filter((o) => o.id !== id));
+  };
 
   const activeOrders = orders.filter((o) => o.status === "active").sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   const servedOrders = orders.filter((o) => o.status === "served").sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10);
@@ -1075,21 +1258,46 @@ function App() {
             <div style={{ fontFamily: "var(--font-accent)", color: "var(--saffron)", letterSpacing: "0.08em" }} className="text-[8px] sm:text-[10px] leading-tight truncate">TIDIAN KITCHEN</div>
           </div>
         </div>
-        <nav className="flex gap-0.5 sm:gap-1 shrink-0">
-          {[
-            { id: "order", label: "顧客點餐", icon: ShoppingCart },
-            { id: "kitchen", label: "內場出單", icon: ChefHat },
-            { id: "report", label: "每日報表", icon: BarChart3 },
-            { id: "qr", label: "桌卡 QR", icon: QrCode },
-          ].map(({ id, label, icon: Icon }) => (
+        <nav className="flex gap-0.5 sm:gap-1 shrink-0 items-center">
+          {(staffUnlocked
+            ? [
+                { id: "order", label: "顧客點餐", icon: ShoppingCart },
+                { id: "kitchen", label: "內場出單", icon: ChefHat },
+                { id: "report", label: "每日報表", icon: BarChart3 },
+                { id: "qr", label: "桌卡 QR", icon: QrCode },
+              ]
+            : [{ id: "order", label: "顧客點餐", icon: ShoppingCart }]
+          ).map(({ id, label, icon: TabIcon }) => (
             <button key={id} onClick={() => setTab(id)} className="tab-btn flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-sm"
               style={{ background: tab === id ? "var(--saffron)" : "transparent", color: tab === id ? "var(--maroon-dark)" : "var(--paper)", fontWeight: tab === id ? 700 : 400 }}>
-              <Icon size={16} />
+              <TabIcon size={16} />
               <span className="hidden sm:inline">{label}</span>
             </button>
           ))}
+          {staffUnlocked && (
+            <button onClick={lockStaff} title="登出員工模式" className="flex items-center px-2 py-1.5 sm:py-2 rounded-md opacity-70" style={{ color: "var(--paper)" }}>
+              <Lock size={15} />
+            </button>
+          )}
         </nav>
       </header>
+
+      {showPinPrompt && (
+        <StaffPinModal
+          onSubmit={(pin) => {
+            if (pin === STAFF_PIN) { unlockStaff(); return true; }
+            return false;
+          }}
+          onCancel={() => {
+            setShowPinPrompt(false);
+            if (window.history?.replaceState) {
+              const url = new URL(window.location.href);
+              url.searchParams.delete("staff");
+              window.history.replaceState({}, "", url);
+            }
+          }}
+        />
+      )}
 
       {confirmMsg && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-30 px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 slide-up" style={{ background: "var(--juniper)", color: "var(--paper)" }}>
@@ -1114,7 +1322,7 @@ function App() {
 
       {/* ================= 顧客點餐 ================= */}
       {tab === "order" && (
-        <div className="max-w-5xl mx-auto px-4 py-6 pb-44">
+        <div className="max-w-5xl mx-auto px-4 py-6" style={{ paddingBottom: cart.length > 0 ? 300 : 110 }}>
           {/* Hero */}
           <div className="card relative overflow-hidden mb-5 p-5" style={{ borderTopRightRadius: 0 }}>
             <PrayerFlags />
@@ -1167,19 +1375,10 @@ function App() {
           <div className="card p-4 mb-6" style={{ borderStyle: "dashed", borderColor: "var(--maroon)", borderWidth: 1.5 }}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {ADDONS.map((a) => (
-                <button key={a.id} onClick={() => addToCart(a)} className="flex items-center justify-between text-xs px-3 py-2 rounded-lg" style={{ background: "var(--cream)" }}>
-                  <span style={{ color: "var(--ink)" }}>{a.name}</span>
-                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="font-semibold">+{a.price}</span>
-                </button>
+                <QuickAddRow key={a.id} name={a.name} price={a.price} onAdd={() => addToCart(a)} />
               ))}
-              <button onClick={() => addVariantById(momoItem, "beef", "traditional")} className="flex items-center justify-between text-xs px-3 py-2 rounded-lg" style={{ background: "var(--cream)" }}>
-                <span style={{ color: "var(--ink)" }}>加購西藏MOMO記憶蒸餃 牛肉</span>
-                <span style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="font-semibold">+180</span>
-              </button>
-              <button onClick={() => addVariantById(momoItem, "pork", "traditional")} className="flex items-center justify-between text-xs px-3 py-2 rounded-lg" style={{ background: "var(--cream)" }}>
-                <span style={{ color: "var(--ink)" }}>加購西藏MOMO記憶蒸餃 豬肉</span>
-                <span style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="font-semibold">+160</span>
-              </button>
+              <QuickAddRow name="加購西藏MOMO記憶蒸餃 牛肉" price={180} onAdd={() => addVariantById(momoItem, "beef", "traditional")} />
+              <QuickAddRow name="加購西藏MOMO記憶蒸餃 豬肉" price={160} onAdd={() => addVariantById(momoItem, "pork", "traditional")} />
             </div>
           </div>
 
@@ -1213,10 +1412,7 @@ function App() {
           <SubgroupLabel>🥤 其他飲品</SubgroupLabel>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {DRINKS_OTHER.map((item) => (
-              <button key={item.id} onClick={() => addToCart({ ...item, cat: "drink" })} className="chip-btn text-left card p-3">
-                <p className="text-sm font-medium" style={{ color: "var(--ink)" }}>{item.name}</p>
-                <p style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="text-sm mt-1">{fmt(item.price)}</p>
-              </button>
+              <QuickAddChip key={item.id} name={item.name} price={item.price} onAdd={() => addToCart({ ...item, cat: "drink" })} />
             ))}
           </div>
 
@@ -1267,7 +1463,7 @@ function App() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-2">
             {activeOrders.map((o) => (
-              <KitchenTicket key={o.id} o={o} elapsed={elapsedInfo(o.createdAt)} onToggleItem={toggleItemDone} onComplete={completeOrder} onPayment={setPayment} />
+              <KitchenTicket key={o.id} o={o} elapsed={elapsedInfo(o.createdAt)} onToggleItem={toggleItemDone} onComplete={completeOrder} onPayment={setPayment} onDelete={removeOrder} />
             ))}
           </div>
           {activeOrders.length === 0 && (
@@ -1349,6 +1545,7 @@ function App() {
   );
 }
 
+document.getElementById("boot-fallback")?.remove();
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(<App />);
 
@@ -1367,16 +1564,10 @@ root.render(<App />);
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700;900&family=Noto+Sans+TC:wght@400;500;600&family=Rozha+One&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <script src="https://cdn.tailwindcss.com"></script>
 
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom": "https://esm.sh/react-dom@18.2.0",
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-    "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime"
-  }
-}
-</script>
+<script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
 
@@ -1404,33 +1595,47 @@ root.render(<App />);
 window.SUPABASE_URL = "https://xtswnyiqhayaclpdlbxk.supabase.co";
 window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0c3dueWlxaGF5YWNscGRsYnhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4ODQ5NDgsImV4cCI6MjEwMjQ2MDk0OH0.-CjHAiE1ghJemJjNgxPhr--3LE_STICZlNNyP4cgG8w";
 
+// 員工模式 PIN 碼：內場/報表/QR 頁面要輸入這組密碼才能看到。
+// 換成你自己想要的 4 位數字（或任意字串），之後想改隨時回來改這一行就好。
+window.STAFF_PIN = "8888";
+
 </script>
 
-<script type="text/babel" data-presets="react" data-type="module">
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import ReactDOM from "react-dom/client";
-import {
-  ShoppingCart,
-  ChefHat,
-  BarChart3,
-  Plus,
-  Minus,
-  Check,
-  Clock,
-  Banknote,
-  Landmark,
-  Mountain,
-  RefreshCw,
-  Sparkles,
-  Flame,
-  X,
-  Trash2,
-  AlertCircle,
-  QrCode,
-  Copy,
-} from "https://esm.sh/lucide-react@0.294.0?external=react,react-dom";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import QRCodeLib from "https://esm.sh/qrcode@1.5.3";
+<script type="text/babel" data-presets="react">
+/* ------------------------------------------------------------------ */
+/*  執行環境：全部改用傳統 <script> 全域變數（不用 ESM import），       */
+/*  是為了在舊版 Safari / 有安裝廣告或隱私封鎖套件的瀏覽器上都能正常跑。  */
+/* ------------------------------------------------------------------ */
+const { useState, useEffect, useRef, useCallback } = React;
+const { createClient } = window.supabase;
+const QRCodeLib = window.QRCode;
+
+/* 圖示：手刻極簡線條 icon，不依賴 lucide-react（避免額外一個可能被擋掉的 CDN 套件） */
+function Icon({ children, size = 16, color, style, className }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color, flexShrink: 0, ...style }} className={className}>
+      {children}
+    </svg>
+  );
+}
+const ShoppingCart = (props) => (<Icon {...props}><circle cx="9" cy="20" r="1.4" fill="currentColor" stroke="none" /><circle cx="18" cy="20" r="1.4" fill="currentColor" stroke="none" /><path d="M2.5 3h2l2.4 12.2a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L21 8H6" /></Icon>);
+const ChefHat = (props) => (<Icon {...props}><path d="M6 18h12" /><path d="M7 18v-5" /><path d="M17 18v-5" /><path d="M6 13a4 4 0 0 1-1-7.9A4 4 0 0 1 12 4a4 4 0 0 1 7 1.1A4 4 0 0 1 18 13" /></Icon>);
+const BarChart3 = (props) => (<Icon {...props}><line x1="4" y1="20" x2="20" y2="20" /><line x1="7" y1="17" x2="7" y2="11" /><line x1="12" y1="17" x2="12" y2="6" /><line x1="17" y1="17" x2="17" y2="14" /></Icon>);
+const Plus = (props) => (<Icon {...props}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></Icon>);
+const Minus = (props) => (<Icon {...props}><line x1="5" y1="12" x2="19" y2="12" /></Icon>);
+const Check = (props) => (<Icon {...props}><polyline points="4 12 9 17 20 6" /></Icon>);
+const Banknote = (props) => (<Icon {...props}><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="3" /></Icon>);
+const Landmark = (props) => (<Icon {...props}><line x1="3" y1="21" x2="21" y2="21" /><line x1="5" y1="21" x2="5" y2="10" /><line x1="10" y1="21" x2="10" y2="10" /><line x1="14" y1="21" x2="14" y2="10" /><line x1="19" y1="21" x2="19" y2="10" /><polygon points="12 3 21 8 3 8" /></Icon>);
+const Mountain = (props) => (<Icon {...props}><path d="M3 20 L9 8 L13 15 L16 10 L21 20 Z" /></Icon>);
+const RefreshCw = (props) => (<Icon {...props}><path d="M21 12a9 9 0 0 1-15.3 6.4L3 16" /><path d="M3 12a9 9 0 0 1 15.3-6.4L21 8" /><polyline points="3 21 3 16 8 16" /><polyline points="21 3 21 8 16 8" /></Icon>);
+const Sparkles = (props) => (<Icon {...props}><path d="M11 3 L12.6 8 L18 9.5 L12.6 11 L11 16 L9.4 11 L4 9.5 L9.4 8 Z" /><path d="M18 15 L18.8 17.3 L21 18 L18.8 18.7 L18 21 L17.2 18.7 L15 18 L17.2 17.3 Z" /></Icon>);
+const Flame = (props) => (<Icon {...props}><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-1-2-1-2 1 4-1 5-3 5a4 4 0 0 1-4-4c0-4 3-4 2-6z" /></Icon>);
+const X = (props) => (<Icon {...props}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></Icon>);
+const Trash2 = (props) => (<Icon {...props}><polyline points="3 6 5 6 21 6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></Icon>);
+const AlertCircle = (props) => (<Icon {...props}><circle cx="12" cy="12" r="9" /><line x1="12" y1="7" x2="12" y2="13" /><line x1="12" y1="16.5" x2="12" y2="16.51" /></Icon>);
+const QrCode = (props) => (<Icon {...props}><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><line x1="14" y1="14" x2="14" y2="17" /><line x1="17" y1="14" x2="21" y2="14" /><line x1="14" y1="21" x2="17" y2="21" /><line x1="19" y1="17" x2="21" y2="17" /><line x1="19" y1="19" x2="21" y2="19" /><line x1="21" y1="19" x2="21" y2="21" /></Icon>);
+const Copy = (props) => (<Icon {...props}><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></Icon>);
+const Lock = (props) => (<Icon {...props}><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></Icon>);
 
 /* ------------------------------------------------------------------ */
 /*  雲端連線：Supabase（取代原本只能在 Claude 對話裡用的 window.storage） */
@@ -1516,6 +1721,23 @@ async function updateOrderPayment(orderId, payment) {
   const { error } = await sb.from("orders").update({ payment }).eq("id", orderId);
   if (error) console.error("更新付款方式失敗", error);
 }
+async function deleteOrder(orderId) {
+  if (!sb) return { error: new Error("Supabase 尚未設定") };
+  // Supabase 對於「RLS 政策沒開放刪除」這種情況不會回傳 error，
+  // 而是刪除 0 筆、回傳成功 —— 所以要用 .select() 檢查有沒有真的刪到東西，
+  // data 是空陣列就代表其實沒刪掉（多半是權限問題），要當成失敗處理。
+  const { data, error } = await sb.from("orders").delete().eq("id", orderId).select();
+  if (error) {
+    console.error("刪除訂單失敗", error);
+    return { error };
+  }
+  if (!data || data.length === 0) {
+    const blocked = new Error("刪除失敗：可能是資料庫權限（RLS）還沒開放刪除，或這筆訂單已經不存在");
+    console.error("刪除訂單失敗", blocked);
+    return { error: blocked };
+  }
+  return { error: null };
+}
 
 /* ------------------------------------------------------------------ */
 /*  餐點照片：從 /images 資料夾讀取（避免整個檔案塞進超大 base64 字串） */
@@ -1539,29 +1761,29 @@ const PROTEINS = [
 
 const CURRY_BASES = {
   chicken: [
-    { id: "butter", name: "濃郁奶香雞咖哩", en: "Butter Chicken", price: 300, desc: "奶香濃厚層次分明，最多人點的招牌必吃。", featured: true, badge: "人氣No.1", needsPairing: true, photo: IMG_CURRY },
-    { id: "tikka", name: "不簡單烤雞肉咖哩", en: "Chicken Tikka Masala", price: 300, desc: "基底咖哩醬加了鮮奶油提味，與番茄翻炒，口感更香濃，回味無窮。", featured: true, needsPairing: true },
-    { id: "daal", name: "印式扁豆燉雞肉", en: "Daal Chicken", price: 280, desc: "印度家常扁豆泥與雞肉慢燉，口感似馬鈴薯醬，超級適合配飯沾餅。", needsPairing: true },
-    { id: "palak", name: "菠醬雞肉綠咖哩", en: "Palak Chicken", price: 280, desc: "運用大量菠菜，現做打成泥，與雞肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
+    { id: "butter", name: "濃郁奶香雞咖哩", en: "Butter Chicken", price: 330, desc: "奶香濃厚層次分明，最多人點的招牌必吃。", featured: true, badge: "人氣No.1", needsPairing: true, photo: IMG_CURRY },
+    { id: "tikka", name: "不簡單烤雞肉咖哩", en: "Chicken Tikka Masala", price: 330, desc: "基底咖哩醬加了鮮奶油提味，與番茄翻炒，口感更香濃，回味無窮。", featured: true, needsPairing: true },
+    { id: "daal", name: "印式扁豆燉雞肉", en: "Daal Chicken", price: 310, desc: "印度家常扁豆泥與雞肉慢燉，口感似馬鈴薯醬，超級適合配飯沾餅。", needsPairing: true },
+    { id: "palak", name: "菠醬雞肉綠咖哩", en: "Palak Chicken", price: 310, desc: "運用大量菠菜，現做打成泥，與雞肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
   ],
   beef: [
-    { id: "classic", name: "經典藏印咖哩牛", en: "Beef Curry", price: 300, desc: "數種香料與帶骨牛肉同時熬出的咖哩醬底，肉質Q軟嫩牙，濃郁化在嘴中。", featured: true, needsPairing: true },
-    { id: "daal", name: "印式扁豆燉牛", en: "Daal Beef", price: 300, desc: "印度家常扁豆泥與牛肉慢燉，口感似馬鈴薯醬，每口都吃得到家鄉味。", needsPairing: true },
-    { id: "palak", name: "菠醬綠咖哩牛", en: "Palak Beef", price: 300, desc: "運用大量菠菜現打成泥，再與牛肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
-    { id: "keema", name: "碎炒牛肉咖哩", en: "Keema Curry", price: 300, desc: "主廚快火爆炒出碎絞肉香氣，與馬鈴薯燉煮出濃厚的肉咖哩，相當下飯。", needsPairing: true },
-    { id: "coconut", name: "南洋椰香牛肉", en: "Coconut Beef", price: 300, desc: "加入南洋椰奶原汁，就像奔放在印度洋上，熱情的一道菜。", needsPairing: true },
+    { id: "classic", name: "經典藏印咖哩牛", en: "Beef Curry", price: 330, desc: "數種香料與帶骨牛肉同時熬出的咖哩醬底，肉質Q軟嫩牙，濃郁化在嘴中。", featured: true, needsPairing: true },
+    { id: "daal", name: "印式扁豆燉牛", en: "Daal Beef", price: 330, desc: "印度家常扁豆泥與牛肉慢燉，口感似馬鈴薯醬，每口都吃得到家鄉味。", needsPairing: true },
+    { id: "palak", name: "菠醬綠咖哩牛", en: "Palak Beef", price: 330, desc: "運用大量菠菜現打成泥，再與牛肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
+    { id: "keema", name: "碎炒牛肉咖哩", en: "Keema Curry", price: 330, desc: "主廚快火爆炒出碎絞肉香氣，與馬鈴薯燉煮出濃厚的肉咖哩，相當下飯。", needsPairing: true },
+    { id: "coconut", name: "南洋椰香牛肉", en: "Coconut Beef", price: 330, desc: "加入南洋椰奶原汁，就像奔放在印度洋上，熱情的一道菜。", needsPairing: true },
   ],
   mutton: [
-    { id: "classic", name: "經典藏印咖哩羊", en: "Mutton Curry", price: 330, desc: "數種香料與帶骨羊肉同時熬出的咖哩醬底，肉質Q軟嫩牙，濃郁化在嘴中。", featured: true, needsPairing: true },
-    { id: "daal", name: "印式扁豆燉羊", en: "Daal Mutton", price: 330, desc: "印度家常扁豆泥與羊肉慢燉，口感似馬鈴薯醬，每口都吃得到家鄉味。", needsPairing: true },
-    { id: "palak", name: "菠醬綠咖哩羊", en: "Palak Mutton", price: 330, desc: "運用大量菠菜現打成泥，再與羊肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
+    { id: "classic", name: "經典藏印咖哩羊", en: "Mutton Curry", price: 360, desc: "數種香料與帶骨羊肉同時熬出的咖哩醬底，肉質Q軟嫩牙，濃郁化在嘴中。", featured: true, needsPairing: true },
+    { id: "daal", name: "印式扁豆燉羊", en: "Daal Mutton", price: 360, desc: "印度家常扁豆泥與羊肉慢燉，口感似馬鈴薯醬，每口都吃得到家鄉味。", needsPairing: true },
+    { id: "palak", name: "菠醬綠咖哩羊", en: "Palak Mutton", price: 360, desc: "運用大量菠菜現打成泥，再與羊肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
   ],
   veg: [
-    { id: "creamy_paneer", name: "濃郁奶香帕尼咖哩", en: "Creamy Butter Paneer", price: 340, desc: "手工乳酪塊以鮮奶油與腰果醬燉煮，綿密香甜，蔬食者的濃郁新選擇。", featured: true, badge: "新品", needsPairing: true },
-    { id: "palak_paneer", name: "綠菠菜起司咖哩", en: "Palak Paneer", price: 330, desc: "大量菠菜現打成泥加上高原豆腐乳酪，口感Q軟咀嚼著乳清香，清爽不油膩。", featured: true, needsPairing: true },
-    { id: "daal", name: "熱蒜印度扁豆", en: "Daal Curry", price: 300, desc: "印度人日常吃的一道料理，扁豆泥與番茄燉煮，超適合配飯沾餅，最具代表的印度家常菜。", needsPairing: true },
-    { id: "mixed", name: "什錦綜合蔬菜", en: "Mixed Vegetable Curry", price: 320, desc: "帶有香香的新鮮綜合時蔬，蔬菜含水量較高，與濃郁咖哩醬搭配起來清爽溫順不膩口。", needsPairing: true },
-    { id: "aloo", name: "花椰菜烤炒洋芋", en: "Aloo Gobi", price: 300, desc: "數種香料快火翻炒著花椰菜與馬鈴薯，實在意想不到的食材組合。", needsPairing: true },
+    { id: "creamy_paneer", name: "濃郁奶香帕尼咖哩", en: "Creamy Butter Paneer", price: 370, desc: "手工乳酪塊以鮮奶油與腰果醬燉煮，綿密香甜，蔬食者的濃郁新選擇。", featured: true, badge: "新品", needsPairing: true },
+    { id: "palak_paneer", name: "綠菠菜起司咖哩", en: "Palak Paneer", price: 360, desc: "大量菠菜現打成泥加上高原豆腐乳酪，口感Q軟咀嚼著乳清香，清爽不油膩。", featured: true, needsPairing: true },
+    { id: "daal", name: "熱蒜印度扁豆", en: "Daal Curry", price: 330, desc: "印度人日常吃的一道料理，扁豆泥與番茄燉煮，超適合配飯沾餅，最具代表的印度家常菜。", needsPairing: true },
+    { id: "mixed", name: "什錦綜合蔬菜", en: "Mixed Vegetable Curry", price: 350, desc: "帶有香香的新鮮綜合時蔬，蔬菜含水量較高，與濃郁咖哩醬搭配起來清爽溫順不膩口。", needsPairing: true },
+    { id: "aloo", name: "花椰菜烤炒洋芋", en: "Aloo Gobi", price: 330, desc: "數種香料快火翻炒著花椰菜與馬鈴薯，實在意想不到的食材組合。", needsPairing: true },
   ],
 };
 
@@ -1654,9 +1876,9 @@ const DRINK_CHOICES = [
   { label: "可樂", extra: 0 },
   { label: "雪碧", extra: 0 },
   { label: "無糖綠茶", extra: 0 },
-  { label: "招牌香料奶茶（熱）", extra: 70 },
-  { label: "招牌香料奶茶（冰）", extra: 70 },
-  { label: "酥油茶", extra: 70 },
+  { label: "招牌香料奶茶（熱）", extra: 0 },
+  { label: "招牌香料奶茶（冰）", extra: 0 },
+  { label: "酥油茶", extra: 0 },
 ];
 const LASSI_CHOICES = ["原味", "香蕉", "蜂蜜", "玫瑰", "芒果"].map((label) => ({ label, extra: 0 }));
 const NAAN_CHOICES = [
@@ -1672,14 +1894,14 @@ const COMBO_TIERS = [
     id: "comboA", tier: "A", name: "招牌吃法", price: 90, desc: "泰香飯＋烤餅＋飲料", ribbon: "🔥 多數人這樣點",
     subChoices: [
       { key: "naan", label: "烤餅口味", options: NAAN_CHOICES },
-      { key: "drink", label: "飲料口味（招牌奶茶／酥油茶需加價）", options: DRINK_CHOICES },
+      { key: "drink", label: "飲料口味", options: DRINK_CHOICES },
     ],
   },
   {
     id: "comboB", tier: "B", name: "尊爵吃法", price: 220, desc: "泰香飯＋烤餅＋飲料＋優格奶昔", ribbon: "👑 CP值最高",
     subChoices: [
       { key: "naan", label: "烤餅口味", options: NAAN_CHOICES },
-      { key: "drink", label: "飲料口味（招牌奶茶／酥油茶需加價）", options: DRINK_CHOICES },
+      { key: "drink", label: "飲料口味", options: DRINK_CHOICES },
       { key: "lassi", label: "奶昔口味", options: LASSI_CHOICES },
     ],
   },
@@ -1799,6 +2021,35 @@ function NoticeBox({ children }) {
   );
 }
 
+/* 點一下就會短暫變綠色＋打勾的小工具，給「加價購」跟「其他飲品」那種整排都能點的按鈕用 */
+function useAddFlash(duration = 1000) {
+  const [added, setAdded] = useState(false);
+  const trigger = () => {
+    setAdded(true);
+    setTimeout(() => setAdded(false), duration);
+  };
+  return [added, trigger];
+}
+
+/* 統一的「加入」按鈕：點下去會短暫變綠色＋打勾，讓客人清楚知道真的加進購物車了 */
+function AddButton({ onAdd, label = "加入" }) {
+  const [added, setAdded] = useState(false);
+  const handleClick = () => {
+    onAdd();
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1000);
+  };
+  return (
+    <button
+      onClick={handleClick}
+      className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full"
+      style={{ background: added ? "var(--juniper)" : "var(--maroon)", color: "var(--paper)", transition: "background .15s ease" }}
+    >
+      {added ? (<><Check size={13} /> 已加入</>) : (<><Plus size={13} /> {label}</>)}
+    </button>
+  );
+}
+
 /* 餐點卡：支援單一價格，或多口味／部位 variants 選擇後再加入購物車 */
 function DishCard({ item, onAdd, featuredLabel, cat }) {
   const hasVariants = Array.isArray(item.variants) && item.variants.length > 0;
@@ -1865,11 +2116,39 @@ function DishCard({ item, onAdd, featuredLabel, cat }) {
       </div>
       <div className="flex items-center justify-between mt-3 pt-2" style={{ borderTop: "1px dashed var(--line)" }}>
         <span style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="text-sm font-semibold">{fmt(price)}</span>
-        <button onClick={handleAdd} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "var(--maroon)", color: "var(--paper)" }}>
-          <Plus size={13} /> 加入
-        </button>
+        <AddButton onAdd={handleAdd} />
       </div>
     </div>
+  );
+}
+
+/* 加價購推薦那一排：整條都可以點，點下去文字會變「✓ 已加入」並閃綠色 */
+function QuickAddRow({ name, price, onAdd }) {
+  const [added, trigger] = useAddFlash();
+  return (
+    <button
+      onClick={() => { onAdd(); trigger(); }}
+      className="flex items-center justify-between text-xs px-3 py-2 rounded-lg"
+      style={{ background: added ? "var(--juniper)" : "var(--cream)", transition: "background .15s ease" }}
+    >
+      <span style={{ color: added ? "var(--paper)" : "var(--ink)" }}>{added ? `✓ 已加入：${name}` : name}</span>
+      <span style={{ fontFamily: "var(--font-mono)", color: added ? "var(--paper)" : "var(--maroon)" }} className="font-semibold">+{price}</span>
+    </button>
+  );
+}
+
+/* 其他飲品那種小卡片：點下去卡片會閃綠色＋打勾 */
+function QuickAddChip({ name, price, onAdd }) {
+  const [added, trigger] = useAddFlash();
+  return (
+    <button
+      onClick={() => { onAdd(); trigger(); }}
+      className="chip-btn text-left card p-3"
+      style={{ background: added ? "var(--juniper)" : "var(--paper)", borderColor: added ? "var(--juniper)" : "var(--line)", transition: "background .15s ease" }}
+    >
+      <p className="text-sm font-medium flex items-center gap-1" style={{ color: added ? "var(--paper)" : "var(--ink)" }}>{added && <Check size={12} />} {name}</p>
+      <p style={{ fontFamily: "var(--font-mono)", color: added ? "var(--paper)" : "var(--maroon)" }} className="text-sm mt-1">{fmt(price)}</p>
+    </button>
   );
 }
 
@@ -1941,9 +2220,7 @@ function ComboTierCard({ tier, onAdd }) {
       ))}
       <div className="flex items-center justify-between mt-3 pt-2" style={{ borderTop: "1px dashed var(--line)" }}>
         <p style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="text-base font-bold">+{total}</p>
-        <button onClick={handleAdd} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "var(--maroon)", color: "var(--paper)" }}>
-          <Plus size={13} /> 加入
-        </button>
+        <AddButton onAdd={handleAdd} />
       </div>
     </div>
   );
@@ -2052,7 +2329,7 @@ function PairingModal({ sourceName, onConfirm, onCancel, onSkip }) {
 }
 
 /* 內場出單卡：進來就能直接勾選品項，全部勾完（或手動）按一下就完成出餐 */
-function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment }) {
+function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment, onDelete }) {
   const allDone = o.items.length > 0 && o.items.every((i) => i.done);
   const grouped = {};
   o.items.forEach((i) => {
@@ -2060,13 +2337,23 @@ function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment }) {
     if (!grouped[c]) grouped[c] = [];
     grouped[c].push(i);
   });
+  const handleDelete = () => {
+    if (window.confirm(`確定要刪除第 ${o.table} 桌這張訂單嗎？這個動作無法復原。`)) {
+      onDelete(o.id);
+    }
+  };
   return (
     <div className="ticket p-3.5">
       <div className="flex items-center justify-between mb-1.5">
         <span style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-lg font-bold">第 {o.table} 桌</span>
-        <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: elapsed.color, color: "var(--paper)" }}>
-          {elapsed.mins} 分鐘
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: elapsed.color, color: "var(--paper)" }}>
+            {elapsed.mins} 分鐘
+          </span>
+          <button onClick={handleDelete} title="刪除這張訂單" className="p-1 rounded opacity-60" style={{ color: "var(--maroon)" }}>
+            <Trash2 size={14} />
+          </button>
+        </div>
       </div>
       <p style={{ fontFamily: "var(--font-mono)" }} className="text-xs opacity-60 mb-2">
         #{o.id.slice(-6)}．{new Date(o.createdAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
@@ -2187,21 +2474,74 @@ function QrBoard() {
 }
 
 function TableQrCard({ table, origin, copied, onCopy }) {
-  const canvasRef = useRef(null);
+  const boxRef = useRef(null);
   const url = `${origin}?table=${table}`;
   useEffect(() => {
-    if (canvasRef.current) {
-      QRCodeLib.toCanvas(canvasRef.current, url, { width: 168, margin: 1, color: { dark: "#3B2E22", light: "#FBF3E3" } }).catch(() => {});
+    if (boxRef.current) {
+      boxRef.current.innerHTML = "";
+      new QRCodeLib(boxRef.current, {
+        text: url,
+        width: 168,
+        height: 168,
+        colorDark: "#3B2E22",
+        colorLight: "#FBF3E3",
+        correctLevel: QRCodeLib.CorrectLevel.M,
+      });
     }
   }, [url]);
   return (
     <div className="card p-3 flex flex-col items-center text-center">
       <p style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-sm font-bold mb-2">第 {table} 桌</p>
-      <canvas ref={canvasRef} className="rounded-md" style={{ border: "1px solid var(--line)" }} />
+      <div ref={boxRef} className="rounded-md overflow-hidden" style={{ border: "1px solid var(--line)", width: 168, height: 168 }} />
       <p className="text-[10px] mt-2 break-all opacity-60" style={{ color: "var(--ink)", fontFamily: "var(--font-mono)" }}>{url}</p>
       <button onClick={() => onCopy(url, table)} className="mt-2 flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: copied ? "var(--juniper)" : "var(--cream)", color: copied ? "var(--paper)" : "var(--ink)" }}>
         <Copy size={11} /> {copied ? "已複製" : "複製連結"}
       </button>
+    </div>
+  );
+}
+
+/* 員工模式 PIN 輸入視窗：只有網址加上 ?staff=1 才會跳出，顧客平常完全不會看到這個畫面 */
+function StaffPinModal({ onSubmit, onCancel }) {
+  const [pin, setPin] = useState("");
+  const [wrong, setWrong] = useState(false);
+  const inputRef = useRef(null);
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const submit = () => {
+    const ok = onSubmit(pin);
+    if (!ok) {
+      setWrong(true);
+      setPin("");
+      setTimeout(() => setWrong(false), 1200);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(59,46,34,.7)" }}>
+      <div className="card w-full sm:max-w-xs p-6 slide-up text-center">
+        <Lock size={28} style={{ color: "var(--maroon)", margin: "0 auto" }} />
+        <h3 style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-lg font-bold mt-2 mb-1">員工模式</h3>
+        <p className="text-xs mb-4 opacity-70" style={{ color: "var(--ink)" }}>輸入 PIN 碼進入內場出單／報表／桌卡 QR</p>
+        <input
+          ref={inputRef}
+          type="password"
+          inputMode="numeric"
+          value={pin}
+          onChange={(e) => setPin(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+          className="w-full text-center text-lg tracking-[0.3em] px-3 py-2.5 rounded-md border mb-2"
+          style={{ borderColor: wrong ? "var(--maroon)" : "var(--line)", background: "var(--cream)", color: "var(--ink)" }}
+          placeholder="••••"
+        />
+        {wrong && <p className="text-xs mb-2" style={{ color: "var(--maroon)" }}>PIN 碼不對，再試一次</p>}
+        <button onClick={submit} className="w-full py-2.5 rounded-md text-sm font-bold mb-2" style={{ background: "var(--maroon)", color: "var(--paper)" }}>
+          進入
+        </button>
+        <button onClick={onCancel} className="w-full text-xs py-1 opacity-50" style={{ color: "var(--ink)" }}>
+          取消，回到點餐頁
+        </button>
+      </div>
     </div>
   );
 }
@@ -2218,9 +2558,13 @@ function SupabaseSetupBanner() {
 /*  App                                                                */
 /* ------------------------------------------------------------------ */
 
+const STAFF_UNLOCK_KEY = "tidian_staff_unlocked";
+const STAFF_PIN = window.STAFF_PIN || "8888";
+
 function App() {
   const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const urlTable = params.get("table");
+  const staffRequested = params.get("staff") === "1";
 
   const [tab, setTab] = useState("order");
   const [table, setTable] = useState(urlTable ? Number(urlTable) : null);
@@ -2236,17 +2580,45 @@ function App() {
   const [showAddonUpsell, setShowAddonUpsell] = useState(false);
   const prevNewCount = useRef(0);
 
+  /* ---------------- 員工模式：顧客只看得到點餐頁，內場/報表/QR 要輸入 PIN 才會出現 ---------------- */
+  const [staffUnlocked, setStaffUnlocked] = useState(() => {
+    try { return localStorage.getItem(STAFF_UNLOCK_KEY) === "1"; } catch { return false; }
+  });
+  const [showPinPrompt, setShowPinPrompt] = useState(staffRequested && !staffUnlocked);
+
+  useEffect(() => {
+    if (!staffUnlocked && tab !== "order") setTab("order");
+  }, [staffUnlocked, tab]);
+
+  const unlockStaff = () => {
+    try { localStorage.setItem(STAFF_UNLOCK_KEY, "1"); } catch {}
+    setStaffUnlocked(true);
+    setShowPinPrompt(false);
+    if (window.history?.replaceState) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("staff");
+      window.history.replaceState({}, "", url);
+    }
+  };
+  const lockStaff = () => {
+    try { localStorage.removeItem(STAFF_UNLOCK_KEY); } catch {}
+    setStaffUnlocked(false);
+    setTab("order");
+  };
+
   const refresh = useCallback(async () => {
+    if (!staffUnlocked) return;
     const o = await fetchBoardOrders();
     setOrders(o);
-  }, []);
+  }, [staffUnlocked]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
   /* 即時同步：Supabase Realtime 推播，訂單一有異動廚房畫面立刻更新；
-     另外保留 20 秒安全網輪詢，避免 WebSocket 斷線時漏單 */
+     另外保留 20 秒安全網輪詢，避免 WebSocket 斷線時漏單。
+     只有員工模式解鎖時才會訂閱／拉取訂單資料，顧客的裝置完全不會碰到其他桌的訂單內容。 */
   useEffect(() => {
-    if (!sb) return;
+    if (!sb || !staffUnlocked) return;
     const channel = sb
       .channel("orders-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => { refresh(); })
@@ -2256,7 +2628,7 @@ function App() {
       sb.removeChannel(channel);
       clearInterval(safetyNet);
     };
-  }, [refresh]);
+  }, [refresh, staffUnlocked]);
 
   useEffect(() => {
     const newCount = orders.filter((o) => o.status === "active").length;
@@ -2367,6 +2739,14 @@ function App() {
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, payment: method } : o)));
     await updateOrderPayment(id, method);
   };
+  const removeOrder = async (id) => {
+    const { error } = await deleteOrder(id);
+    if (error) {
+      alert("刪除失敗：資料庫還沒開放刪除權限。請到 Supabase 的 SQL Editor 重新執行一次 supabase-schema.sql（裡面已經加了刪除的權限設定）。");
+      return;
+    }
+    setOrders((prev) => prev.filter((o) => o.id !== id));
+  };
 
   const activeOrders = orders.filter((o) => o.status === "active").sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   const servedOrders = orders.filter((o) => o.status === "served").sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10);
@@ -2432,21 +2812,46 @@ function App() {
             <div style={{ fontFamily: "var(--font-accent)", color: "var(--saffron)", letterSpacing: "0.08em" }} className="text-[8px] sm:text-[10px] leading-tight truncate">TIDIAN KITCHEN</div>
           </div>
         </div>
-        <nav className="flex gap-0.5 sm:gap-1 shrink-0">
-          {[
-            { id: "order", label: "顧客點餐", icon: ShoppingCart },
-            { id: "kitchen", label: "內場出單", icon: ChefHat },
-            { id: "report", label: "每日報表", icon: BarChart3 },
-            { id: "qr", label: "桌卡 QR", icon: QrCode },
-          ].map(({ id, label, icon: Icon }) => (
+        <nav className="flex gap-0.5 sm:gap-1 shrink-0 items-center">
+          {(staffUnlocked
+            ? [
+                { id: "order", label: "顧客點餐", icon: ShoppingCart },
+                { id: "kitchen", label: "內場出單", icon: ChefHat },
+                { id: "report", label: "每日報表", icon: BarChart3 },
+                { id: "qr", label: "桌卡 QR", icon: QrCode },
+              ]
+            : [{ id: "order", label: "顧客點餐", icon: ShoppingCart }]
+          ).map(({ id, label, icon: TabIcon }) => (
             <button key={id} onClick={() => setTab(id)} className="tab-btn flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-sm"
               style={{ background: tab === id ? "var(--saffron)" : "transparent", color: tab === id ? "var(--maroon-dark)" : "var(--paper)", fontWeight: tab === id ? 700 : 400 }}>
-              <Icon size={16} />
+              <TabIcon size={16} />
               <span className="hidden sm:inline">{label}</span>
             </button>
           ))}
+          {staffUnlocked && (
+            <button onClick={lockStaff} title="登出員工模式" className="flex items-center px-2 py-1.5 sm:py-2 rounded-md opacity-70" style={{ color: "var(--paper)" }}>
+              <Lock size={15} />
+            </button>
+          )}
         </nav>
       </header>
+
+      {showPinPrompt && (
+        <StaffPinModal
+          onSubmit={(pin) => {
+            if (pin === STAFF_PIN) { unlockStaff(); return true; }
+            return false;
+          }}
+          onCancel={() => {
+            setShowPinPrompt(false);
+            if (window.history?.replaceState) {
+              const url = new URL(window.location.href);
+              url.searchParams.delete("staff");
+              window.history.replaceState({}, "", url);
+            }
+          }}
+        />
+      )}
 
       {confirmMsg && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-30 px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 slide-up" style={{ background: "var(--juniper)", color: "var(--paper)" }}>
@@ -2471,7 +2876,7 @@ function App() {
 
       {/* ================= 顧客點餐 ================= */}
       {tab === "order" && (
-        <div className="max-w-5xl mx-auto px-4 py-6 pb-44">
+        <div className="max-w-5xl mx-auto px-4 py-6" style={{ paddingBottom: cart.length > 0 ? 300 : 110 }}>
           {/* Hero */}
           <div className="card relative overflow-hidden mb-5 p-5" style={{ borderTopRightRadius: 0 }}>
             <PrayerFlags />
@@ -2524,19 +2929,10 @@ function App() {
           <div className="card p-4 mb-6" style={{ borderStyle: "dashed", borderColor: "var(--maroon)", borderWidth: 1.5 }}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {ADDONS.map((a) => (
-                <button key={a.id} onClick={() => addToCart(a)} className="flex items-center justify-between text-xs px-3 py-2 rounded-lg" style={{ background: "var(--cream)" }}>
-                  <span style={{ color: "var(--ink)" }}>{a.name}</span>
-                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="font-semibold">+{a.price}</span>
-                </button>
+                <QuickAddRow key={a.id} name={a.name} price={a.price} onAdd={() => addToCart(a)} />
               ))}
-              <button onClick={() => addVariantById(momoItem, "beef", "traditional")} className="flex items-center justify-between text-xs px-3 py-2 rounded-lg" style={{ background: "var(--cream)" }}>
-                <span style={{ color: "var(--ink)" }}>加購西藏MOMO記憶蒸餃 牛肉</span>
-                <span style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="font-semibold">+180</span>
-              </button>
-              <button onClick={() => addVariantById(momoItem, "pork", "traditional")} className="flex items-center justify-between text-xs px-3 py-2 rounded-lg" style={{ background: "var(--cream)" }}>
-                <span style={{ color: "var(--ink)" }}>加購西藏MOMO記憶蒸餃 豬肉</span>
-                <span style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="font-semibold">+160</span>
-              </button>
+              <QuickAddRow name="加購西藏MOMO記憶蒸餃 牛肉" price={180} onAdd={() => addVariantById(momoItem, "beef", "traditional")} />
+              <QuickAddRow name="加購西藏MOMO記憶蒸餃 豬肉" price={160} onAdd={() => addVariantById(momoItem, "pork", "traditional")} />
             </div>
           </div>
 
@@ -2570,10 +2966,7 @@ function App() {
           <SubgroupLabel>🥤 其他飲品</SubgroupLabel>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {DRINKS_OTHER.map((item) => (
-              <button key={item.id} onClick={() => addToCart({ ...item, cat: "drink" })} className="chip-btn text-left card p-3">
-                <p className="text-sm font-medium" style={{ color: "var(--ink)" }}>{item.name}</p>
-                <p style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="text-sm mt-1">{fmt(item.price)}</p>
-              </button>
+              <QuickAddChip key={item.id} name={item.name} price={item.price} onAdd={() => addToCart({ ...item, cat: "drink" })} />
             ))}
           </div>
 
@@ -2624,7 +3017,7 @@ function App() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-2">
             {activeOrders.map((o) => (
-              <KitchenTicket key={o.id} o={o} elapsed={elapsedInfo(o.createdAt)} onToggleItem={toggleItemDone} onComplete={completeOrder} onPayment={setPayment} />
+              <KitchenTicket key={o.id} o={o} elapsed={elapsedInfo(o.createdAt)} onToggleItem={toggleItemDone} onComplete={completeOrder} onPayment={setPayment} onDelete={removeOrder} />
             ))}
           </div>
           {activeOrders.length === 0 && (
@@ -2706,6 +3099,7 @@ function App() {
   );
 }
 
+document.getElementById("boot-fallback")?.remove();
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(<App />);
 
