@@ -121,17 +121,44 @@ async function fetchBoardOrders() {
   return [...(active || []), ...(served || [])].map(rowToOrder);
 }
 
-async function fetchReportOrders(dateStr) {
+async function fetchReportOrders(startDate, endDate) {
   if (!sb) return [];
-  const start = new Date(`${dateStr}T00:00:00`);
-  const end = new Date(`${dateStr}T23:59:59.999`);
   const { data, error } = await sb
     .from("orders")
     .select("*")
-    .gte("created_at", start.toISOString())
-    .lte("created_at", end.toISOString());
+    .gte("created_at", startDate.toISOString())
+    .lte("created_at", endDate.toISOString());
   if (error) console.error("讀取報表失敗", error);
   return (data || []).map(rowToOrder);
+}
+
+/* 依「日／週／月」把某一天換算成報表要查的起訖時間範圍。週是週一到週日。 */
+function reportRange(dateStr, period) {
+  const d = new Date(`${dateStr}T00:00:00`);
+  if (period === "week") {
+    const day = d.getDay();
+    const diffToMonday = (day === 0 ? -6 : 1) - day;
+    const start = new Date(d);
+    start.setDate(d.getDate() + diffToMonday);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return [start, end];
+  }
+  if (period === "month") {
+    const start = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+    return [start, end];
+  }
+  const start = new Date(d);
+  const end = new Date(d);
+  end.setHours(23, 59, 59, 999);
+  return [start, end];
+}
+
+function fmtShortDate(d) {
+  return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 async function insertOrder(order) {
@@ -402,9 +429,38 @@ function todayStr(d = new Date()) {
   return `${y}-${m}-${day}`;
 }
 
+/* 瀏覽器規定「使用者要先跟頁面互動過一次」才准許播放聲音，
+   所以只能重複用同一個 AudioContext，且在使用者第一次點擊/觸控/按鍵時就先解鎖它，
+   不然內場如果開著頁面完全沒點過任何東西，提示音會被瀏覽器悄悄擋掉、不會報錯也聽不到。 */
+let sharedAudioCtx = null;
+function getAudioCtx() {
+  if (!sharedAudioCtx) {
+    sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return sharedAudioCtx;
+}
+function unlockAudioOnFirstInteraction() {
+  const unlock = () => {
+    const ctx = getAudioCtx();
+    if (ctx.state === "suspended") ctx.resume();
+    document.removeEventListener("click", unlock);
+    document.removeEventListener("touchstart", unlock);
+    document.removeEventListener("keydown", unlock);
+  };
+  document.addEventListener("click", unlock);
+  document.addEventListener("touchstart", unlock);
+  document.addEventListener("keydown", unlock);
+  return () => {
+    document.removeEventListener("click", unlock);
+    document.removeEventListener("touchstart", unlock);
+    document.removeEventListener("keydown", unlock);
+  };
+}
+
 function beep() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = getAudioCtx();
+    if (ctx.state === "suspended") ctx.resume();
     const o = ctx.createOscillator();
     const g = ctx.createGain();
     o.connect(g);
@@ -775,6 +831,57 @@ function PairingModal({ sourceName, onConfirm, onCancel, onSkip }) {
 }
 
 /* 內場出單卡：進來就能直接勾選品項，全部勾完（或手動）按一下就完成出餐 */
+/* 左滑刪除：拖過門檻就觸發刪除，放開沒過門檻就彈回去。滑鼠拖曳、觸控都可以用。 */
+function SwipeToDelete({ onDelete, children }) {
+  const [dx, setDx] = useState(0);
+  const dxRef = useRef(0); // 跟 dx state 同步更新，但 ref 沒有 React 重新渲染的時間差，
+                            // finish() 判斷門檻一定要讀這個才不會在快速滑動時讀到過期的值
+  const dragging = useRef(false);
+  const startX = useRef(0);
+  const THRESHOLD = -96;
+
+  const onPointerDown = (e) => {
+    dragging.current = true;
+    startX.current = e.clientX;
+  };
+  const onPointerMove = (e) => {
+    if (!dragging.current) return;
+    const delta = Math.min(0, Math.max(e.clientX - startX.current, -160));
+    dxRef.current = delta;
+    setDx(delta);
+  };
+  const finish = () => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    if (dxRef.current < THRESHOLD) {
+      onDelete();
+    }
+    dxRef.current = 0;
+    setDx(0);
+  };
+
+  return (
+    <div className="relative">
+      <div className="absolute inset-0 flex items-center justify-end pr-6 rounded-lg" style={{ background: "var(--maroon)" }}>
+        <div className="flex items-center gap-1.5" style={{ color: "var(--paper)" }}>
+          <Trash2 size={16} />
+          <span className="text-xs font-semibold">左滑刪除</span>
+        </div>
+      </div>
+      <div
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={finish}
+        onPointerLeave={finish}
+        onPointerCancel={finish}
+        style={{ transform: `translateX(${dx}px)`, transition: dragging.current ? "none" : "transform .2s ease", touchAction: "pan-y" }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment, onDelete }) {
   const allDone = o.items.length > 0 && o.items.every((i) => i.done);
   const grouped = {};
@@ -783,23 +890,14 @@ function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment, onDele
     if (!grouped[c]) grouped[c] = [];
     grouped[c].push(i);
   });
-  const handleDelete = () => {
-    if (window.confirm(`確定要刪除第 ${o.table} 桌這張訂單嗎？這個動作無法復原。`)) {
-      onDelete(o.id);
-    }
-  };
   return (
+    <SwipeToDelete onDelete={() => onDelete(o.id)}>
     <div className="ticket p-3.5">
       <div className="flex items-center justify-between mb-1.5">
         <span style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-lg font-bold">第 {o.table} 桌</span>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: elapsed.color, color: "var(--paper)" }}>
-            {elapsed.mins} 分鐘
-          </span>
-          <button onClick={handleDelete} title="刪除這張訂單" className="p-1 rounded opacity-60" style={{ color: "var(--maroon)" }}>
-            <Trash2 size={14} />
-          </button>
-        </div>
+        <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: elapsed.color, color: "var(--paper)" }}>
+          {elapsed.mins} 分鐘
+        </span>
       </div>
       <p style={{ fontFamily: "var(--font-mono)" }} className="text-xs opacity-60 mb-2">
         #{o.id.slice(-6)}．{new Date(o.createdAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
@@ -835,11 +933,12 @@ function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment, onDele
         {allDone ? "✓ 全部完成，出餐" : "完成出餐"}
       </button>
     </div>
+    </SwipeToDelete>
   );
 }
 
 /* 加購推薦彈窗：套餐確認後緊接著跳出，讓客人一次把配料加齊 */
-function AddonUpsellModal({ onAddAddon, onAddMomo, onClose, cartCount, cartTotal }) {
+function AddonUpsellModal({ onAddAddon, onAddMomo, onAddShapta, onClose, cartCount, cartTotal }) {
   const [justAdded, setJustAdded] = useState({});
 
   const flash = (key) => {
@@ -854,6 +953,10 @@ function AddonUpsellModal({ onAddAddon, onAddMomo, onClose, cartCount, cartTotal
   const handleMomo = (key) => {
     onAddMomo(key);
     flash(`momo-${key}`);
+  };
+  const handleShapta = (key) => {
+    onAddShapta(key);
+    flash(`shapta-${key}`);
   };
 
   return (
@@ -879,6 +982,15 @@ function AddonUpsellModal({ onAddAddon, onAddMomo, onClose, cartCount, cartTotal
               <button key={m.key} onClick={() => handleMomo(m.key)} className="flex items-center justify-between text-sm px-3 py-2.5 rounded-lg" style={{ background: added ? "var(--juniper)" : "var(--cream)", transition: "background .15s ease" }}>
                 <span style={{ color: added ? "var(--paper)" : "var(--ink)" }}>{added ? "✓ 已加入" : `加購西藏MOMO記憶蒸餃 ${m.label}`}</span>
                 <span style={{ fontFamily: "var(--font-mono)", color: added ? "var(--paper)" : "var(--maroon)" }} className="font-semibold">+{m.price}</span>
+              </button>
+            );
+          })}
+          {[{ key: "beef", label: "牛", price: 230 }, { key: "mutton", label: "羊", price: 250 }].map((s) => {
+            const added = justAdded[`shapta-${s.key}`];
+            return (
+              <button key={s.key} onClick={() => handleShapta(s.key)} className="flex items-center justify-between text-sm px-3 py-2.5 rounded-lg" style={{ background: added ? "var(--juniper)" : "var(--cream)", transition: "background .15s ease" }}>
+                <span style={{ color: added ? "var(--paper)" : "var(--ink)" }}>{added ? "✓ 已加入" : `🔥 加購藏式爆炒嗆嘴 ${s.label}`}</span>
+                <span style={{ fontFamily: "var(--font-mono)", color: added ? "var(--paper)" : "var(--maroon)" }} className="font-semibold">+{s.price}</span>
               </button>
             );
           })}
@@ -1020,10 +1132,12 @@ function App() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmMsg, setConfirmMsg] = useState(null);
   const [reportDate, setReportDate] = useState(todayStr());
+  const [reportPeriod, setReportPeriod] = useState("day"); // day | week | month
   const [reportOrders, setReportOrders] = useState([]);
   const [protein, setProtein] = useState(null);
   const [pairing, setPairing] = useState(null); // { name, id }
   const [showAddonUpsell, setShowAddonUpsell] = useState(false);
+  const [showCartPanel, setShowCartPanel] = useState(false);
   const prevNewCount = useRef(0);
 
   /* ---------------- 員工模式：顧客只看得到點餐頁，內場/報表/QR 要輸入 PIN 才會出現 ---------------- */
@@ -1060,6 +1174,9 @@ function App() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  /* 內場提示音需要使用者先跟頁面互動過一次，瀏覽器才會放行 */
+  useEffect(() => unlockAudioOnFirstInteraction(), []);
+
   /* 即時同步：Supabase Realtime 推播，訂單一有異動廚房畫面立刻更新；
      另外保留 20 秒安全網輪詢，避免 WebSocket 斷線時漏單。
      只有員工模式解鎖時才會訂閱／拉取訂單資料，顧客的裝置完全不會碰到其他桌的訂單內容。 */
@@ -1084,8 +1201,9 @@ function App() {
 
   useEffect(() => {
     if (tab !== "report") return;
-    fetchReportOrders(reportDate).then(setReportOrders);
-  }, [tab, reportDate]);
+    const [start, end] = reportRange(reportDate, reportPeriod);
+    fetchReportOrders(start, end).then(setReportOrders);
+  }, [tab, reportDate, reportPeriod]);
 
   /* ---------------- 顧客端：購物車操作 ---------------- */
 
@@ -1158,6 +1276,7 @@ function App() {
     setCart([]);
     setNote("");
     setProtein(null);
+    setShowCartPanel(false);
     setTimeout(() => setSubmitting(false), 2500);
     setTimeout(() => setConfirmMsg(null), 4500);
   };
@@ -1225,6 +1344,7 @@ function App() {
   })();
 
   const momoItem = TRADITIONAL_GROUPED.find((i) => i.id === "momo");
+  const shaptaItem = TRADITIONAL_GROUPED.find((i) => i.id === "shapta");
 
   return (
     <div style={{ fontFamily: "var(--font-body)", background: "var(--cream)" }} className="min-h-screen">
@@ -1274,14 +1394,10 @@ function App() {
               key={id}
               onClick={() => {
                 if (id === "order" && tab === "order") {
-                  window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
-                  const bar = document.getElementById("cart-bar");
-                  if (bar) {
-                    bar.style.boxShadow = "0 0 0 3px var(--saffron)";
-                    setTimeout(() => { bar.style.boxShadow = "none"; }, 700);
-                  }
+                  setShowCartPanel((v) => !v);
                 } else {
                   setTab(id);
+                  setShowCartPanel(false);
                 }
               }}
               title={id === "order" ? "查看購物車" : label}
@@ -1332,6 +1448,55 @@ function App() {
         </div>
       )}
 
+      {/* 購物車面板：從右上角購物車圖示點開，看明細、刪品項、送出訂單都在這裡 */}
+      {showCartPanel && tab === "order" && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setShowCartPanel(false)} />
+          <div className="fixed top-16 right-2 sm:right-4 z-40 w-[92vw] sm:w-96 max-h-[75vh] flex flex-col rounded-xl shadow-2xl overflow-hidden slide-up" style={{ background: "var(--maroon)", border: "1px solid var(--saffron)" }}>
+            <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--maroon-dark)" }}>
+              <span style={{ color: "var(--paper)", fontFamily: "var(--font-display)" }} className="font-bold">我的購物車</span>
+              <button onClick={() => setShowCartPanel(false)} style={{ color: "var(--paper)" }}><X size={18} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-3">
+              {cart.length === 0 ? (
+                <p className="text-sm text-center py-8" style={{ color: "var(--paper)", opacity: 0.7 }}>碗裡空空的🥲先點份咖哩吧！</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {cart.map((i) => (
+                    <div key={i.id} className="flex items-center justify-between text-sm gap-1" style={{ color: "var(--paper)" }}>
+                      <span className="flex-1">{i.name}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button onClick={() => changeQty(i.id, -1)} className="w-6 h-6 rounded flex items-center justify-center" style={{ background: "var(--maroon-dark)" }}><Minus size={12} /></button>
+                        <span style={{ fontFamily: "var(--font-mono)" }} className="w-4 text-center">{i.qty}</span>
+                        <button onClick={() => changeQty(i.id, 1)} className="w-6 h-6 rounded flex items-center justify-center" style={{ background: "var(--maroon-dark)" }}><Plus size={12} /></button>
+                        <span style={{ fontFamily: "var(--font-mono)", width: 56 }} className="text-right">{fmt(i.price * i.qty)}</span>
+                        <button onClick={() => removeLine(i.id)} title="移除這項" className="w-6 h-6 rounded flex items-center justify-center opacity-70" style={{ background: "var(--maroon-dark)" }}><Trash2 size={12} /></button>
+                      </div>
+                    </div>
+                  ))}
+                  <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="備註（例如：不要香菜）" className="w-full mt-2 px-2 py-1.5 rounded text-sm" style={{ background: "var(--maroon-dark)", color: "var(--paper)" }} />
+                </div>
+              )}
+            </div>
+            <div className="px-4 py-3 border-t" style={{ borderColor: "var(--maroon-dark)" }}>
+              {needsAnchor && (
+                <p className="text-xs mb-2 flex items-center gap-1.5" style={{ color: "var(--saffron)" }}>
+                  <AlertCircle size={13} /> 還沒加咖哩或西藏傳統料理喔，單點烤餅／主食／飲品沒辦法單獨送出
+                </p>
+              )}
+              <div className="flex items-center justify-between mb-2">
+                <span style={{ color: "var(--paper)" }} className="text-sm">{cartCount} 項</span>
+                <span style={{ fontFamily: "var(--font-mono)", color: "var(--paper)" }} className="text-sm font-bold">{fmt(cartTotal)}</span>
+              </div>
+              <button onClick={submitOrder} disabled={!table || cart.length === 0 || submitting || needsAnchor} className="w-full px-5 py-2.5 rounded-md text-sm font-semibold"
+                style={{ background: !table || cart.length === 0 || submitting || needsAnchor ? "#8a7a5c" : "var(--saffron)", color: "var(--maroon-dark)", cursor: !table || cart.length === 0 || submitting || needsAnchor ? "not-allowed" : "pointer" }}>
+                {submitting ? "送出中…" : !table ? "請先選桌號" : needsAnchor ? "請先加咖哩或傳統料理" : "送出訂單"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {pairing && (
         <PairingModal sourceName={pairing.name} onConfirm={confirmPairing} onCancel={cancelPairing} onSkip={skipPairing} />
       )}
@@ -1340,7 +1505,13 @@ function App() {
         <AddonUpsellModal
           onAddAddon={(a) => addToCart(a)}
           onAddMomo={(key) => addVariantById(momoItem, key, "traditional")}
-          onClose={() => setShowAddonUpsell(false)}
+          onAddShapta={(key) => addVariantById(shaptaItem, key, "traditional")}
+          onClose={() => {
+            setShowAddonUpsell(false);
+            setTimeout(() => {
+              document.getElementById("traditional-cuisine-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 50);
+          }}
           cartCount={cartCount}
           cartTotal={cartTotal}
         />
@@ -1348,7 +1519,7 @@ function App() {
 
       {/* ================= 顧客點餐 ================= */}
       {tab === "order" && (
-        <div className="max-w-5xl mx-auto px-4 py-6" style={{ paddingBottom: cart.length > 0 ? 300 : 110 }}>
+        <div className="max-w-5xl mx-auto px-4 py-6 pb-16">
           {/* Hero */}
           <div className="card relative overflow-hidden mb-5 p-5" style={{ borderTopRightRadius: 0 }}>
             <PrayerFlags />
@@ -1412,8 +1583,10 @@ function App() {
           </div>
 
           {/* 西藏傳統料理：提前放在加價購推薦下方、單點烤餅上方，讓消費者早一點看到 */}
-          <SectionHeader zh="西藏傳統料理" en="TIBETAN TRADITIONAL CUISINE" icon={ChefHat} />
-          <GroupedDishGrid items={TRADITIONAL_GROUPED} onAdd={addToCart} featuredLabel="主廚推薦" cat="traditional" />
+          <div id="traditional-cuisine-section" style={{ scrollMarginTop: 76 }}>
+            <SectionHeader zh="西藏傳統料理" en="TIBETAN TRADITIONAL CUISINE" icon={ChefHat} />
+            <GroupedDishGrid items={TRADITIONAL_GROUPED} onAdd={addToCart} featuredLabel="主廚推薦" cat="traditional" />
+          </div>
 
           <SubgroupLabel>單點烤餅</SubgroupLabel>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
@@ -1445,43 +1618,6 @@ function App() {
             ))}
           </div>
 
-          {/* 購物車 sticky bar */}
-          <div id="cart-bar" className="fixed bottom-0 left-0 right-0 z-20 border-t-2" style={{ background: "var(--maroon)", borderColor: "var(--saffron)" }}>
-            <div className="max-w-5xl mx-auto px-4 py-3">
-              {cart.length > 0 && (
-                <div className="max-h-32 overflow-y-auto mb-2 space-y-1.5">
-                  {cart.map((i) => (
-                    <div key={i.id} className="flex items-center justify-between text-sm" style={{ color: "var(--paper)" }}>
-                      <span>{i.name}</span>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => changeQty(i.id, -1)} className="w-6 h-6 rounded flex items-center justify-center" style={{ background: "var(--maroon-dark)" }}><Minus size={12} /></button>
-                        <span style={{ fontFamily: "var(--font-mono)" }}>{i.qty}</span>
-                        <button onClick={() => changeQty(i.id, 1)} className="w-6 h-6 rounded flex items-center justify-center" style={{ background: "var(--maroon-dark)" }}><Plus size={12} /></button>
-                        <span style={{ fontFamily: "var(--font-mono)", width: 64 }} className="text-right">{fmt(i.price * i.qty)}</span>
-                        <button onClick={() => removeLine(i.id)} title="移除這項" className="w-6 h-6 rounded flex items-center justify-center opacity-70" style={{ background: "var(--maroon-dark)" }}><Trash2 size={12} /></button>
-                      </div>
-                    </div>
-                  ))}
-                  <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="備註（例如：不要香菜）" className="w-full mt-1 px-2 py-1.5 rounded text-sm" style={{ background: "var(--maroon-dark)", color: "var(--paper)" }} />
-                </div>
-              )}
-              {needsAnchor && (
-                <p className="text-xs mb-2 flex items-center gap-1.5" style={{ color: "var(--saffron)" }}>
-                  <AlertCircle size={13} /> 還沒加咖哩或西藏傳統料理喔，單點烤餅／主食／飲品沒辦法單獨送出
-                </p>
-              )}
-              <div className="flex items-center justify-between">
-                <div style={{ color: "var(--paper)" }} className="text-sm">
-                  {cartCount > 0 ? `${cartCount} 項．` : "碗裡空空的🥲先點份咖哩吧！"}
-                  {cartCount > 0 && <span style={{ fontFamily: "var(--font-mono)" }} className="ml-1">{fmt(cartTotal)}</span>}
-                </div>
-                <button onClick={submitOrder} disabled={!table || cart.length === 0 || submitting || needsAnchor} className="px-5 py-2.5 rounded-md text-sm font-semibold"
-                  style={{ background: !table || cart.length === 0 || submitting || needsAnchor ? "#8a7a5c" : "var(--saffron)", color: "var(--maroon-dark)", cursor: !table || cart.length === 0 || submitting || needsAnchor ? "not-allowed" : "pointer" }}>
-                  {submitting ? "送出中…" : !table ? "請先選桌號" : needsAnchor ? "請先加咖哩或傳統料理" : "送出訂單"}
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
@@ -1509,8 +1645,18 @@ function App() {
               <h3 style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-base font-semibold mb-3 mt-8 opacity-80">已出餐紀錄</h3>
               <div className="flex flex-wrap gap-2">
                 {servedOrders.map((o) => (
-                  <span key={o.id} className="text-xs px-2.5 py-1 rounded-full border" style={{ borderColor: "var(--line)", color: "var(--ink)" }}>
+                  <span key={o.id} className="text-xs pl-2.5 pr-1.5 py-1 rounded-full border flex items-center gap-1.5" style={{ borderColor: "var(--line)", color: "var(--ink)" }}>
                     第{o.table}桌．{fmt(o.total)}．{o.payment === "unpaid" ? "未收款" : o.payment === "cash" ? "現金" : "轉帳"}
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`確定要刪除第 ${o.table} 桌這筆已出餐紀錄嗎？`)) removeOrder(o.id);
+                      }}
+                      title="刪除這筆紀錄"
+                      className="flex items-center justify-center rounded-full opacity-50"
+                      style={{ width: 15, height: 15 }}
+                    >
+                      <X size={11} />
+                    </button>
                   </span>
                 ))}
               </div>
@@ -1519,17 +1665,37 @@ function App() {
         </div>
       )}
 
-      {/* ================= 每日報表 ================= */}
+      {/* ================= 報表 ================= */}
       {tab === "report" && (
         <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-3 mb-6">
-            <h2 style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-xl font-bold">每日報表</h2>
+          <div className="flex items-center gap-3 mb-3 flex-wrap">
+            <h2 style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-xl font-bold">
+              {{ day: "每日報表", week: "每週報表", month: "每月報表" }[reportPeriod]}
+            </h2>
+            <div className="flex rounded-md overflow-hidden border" style={{ borderColor: "var(--line)" }}>
+              {[{ k: "day", label: "日" }, { k: "week", label: "週" }, { k: "month", label: "月" }].map(({ k, label }) => (
+                <button
+                  key={k}
+                  onClick={() => setReportPeriod(k)}
+                  className="px-3 py-1.5 text-sm font-medium"
+                  style={{ background: reportPeriod === k ? "var(--maroon)" : "var(--paper)", color: reportPeriod === k ? "var(--paper)" : "var(--ink)" }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm" style={{ borderColor: "var(--line)", fontFamily: "var(--font-mono)", background: "var(--paper)", color: "var(--ink)" }} />
           </div>
+          <p className="text-xs mb-6 opacity-60" style={{ color: "var(--ink)", fontFamily: "var(--font-mono)" }}>
+            {(() => {
+              const [rs, re] = reportRange(reportDate, reportPeriod);
+              return reportPeriod === "day" ? fmtShortDate(rs) : `${fmtShortDate(rs)} – ${fmtShortDate(re)}`;
+            })()}
+          </p>
 
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
             {[
-              { label: "當日營業額", value: fmt(revenue) },
+              { label: reportPeriod === "day" ? "當日營業額" : reportPeriod === "week" ? "本週營業額" : "本月營業額", value: fmt(revenue) },
               { label: "訂單數", value: count },
               { label: "平均客單價", value: fmt(avgTicket) },
               { label: "未收款金額", value: fmt(byPayment.unpaid) },
