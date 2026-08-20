@@ -1138,6 +1138,7 @@ function App() {
   const [pairing, setPairing] = useState(null); // { name, id }
   const [showAddonUpsell, setShowAddonUpsell] = useState(false);
   const [showCartPanel, setShowCartPanel] = useState(false);
+  const closeCartPanel = () => setShowCartPanel(false);
   const prevNewCount = useRef(0);
 
   /* ---------------- 員工模式：顧客只看得到點餐頁，內場/報表/QR 要輸入 PIN 才會出現 ---------------- */
@@ -1451,7 +1452,7 @@ function App() {
       {/* 購物車面板：從右上角購物車圖示點開，看明細、刪品項、送出訂單都在這裡 */}
       {showCartPanel && tab === "order" && (
         <>
-          <div className="fixed inset-0 z-30" onClick={() => setShowCartPanel(false)} />
+          <div className="fixed inset-0 z-30" onClick={closeCartPanel} />
           <div className="fixed top-16 right-2 sm:right-4 z-40 w-[92vw] sm:w-96 max-h-[75vh] flex flex-col rounded-xl shadow-2xl overflow-hidden slide-up" style={{ background: "var(--maroon)", border: "1px solid var(--saffron)" }}>
             <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--maroon-dark)" }}>
               <span style={{ color: "var(--paper)", fontFamily: "var(--font-display)" }} className="font-bold">我的購物車</span>
