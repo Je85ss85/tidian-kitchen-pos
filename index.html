@@ -253,10 +253,10 @@ const CURRY_BASES = {
   ],
   veg: [
     { id: "creamy_paneer", name: "濃郁奶香帕尼咖哩", en: "Creamy Butter Paneer", price: 370, desc: "手工乳酪塊以鮮奶油與腰果醬燉煮，綿密香甜，蔬食者的濃郁新選擇。", featured: true, badge: "新品", needsPairing: true },
-    { id: "palak_paneer", name: "綠菠菜起司咖哩", en: "Palak Paneer", price: 360, desc: "大量菠菜現打成泥加上高原豆腐乳酪，口感Q軟咀嚼著乳清香，清爽不油膩。", featured: true, needsPairing: true },
-    { id: "daal", name: "熱蒜印度扁豆", en: "Daal Curry", price: 330, desc: "印度人日常吃的一道料理，扁豆泥與番茄燉煮，超適合配飯沾餅，最具代表的印度家常菜。", needsPairing: true },
-    { id: "mixed", name: "什錦綜合蔬菜", en: "Mixed Vegetable Curry", price: 350, desc: "帶有香香的新鮮綜合時蔬，蔬菜含水量較高，與濃郁咖哩醬搭配起來清爽溫順不膩口。", needsPairing: true },
-    { id: "aloo", name: "花椰菜烤炒洋芋", en: "Aloo Gobi", price: 330, desc: "數種香料快火翻炒著花椰菜與馬鈴薯，實在意想不到的食材組合。", needsPairing: true },
+    { id: "palak_paneer", name: "綠菠菜帕尼咖哩", en: "Palak Paneer", price: 330, desc: "大量菠菜現打成泥加上高原豆腐乳酪，口感Q軟咀嚼著乳清香，清爽不油膩。", featured: true, needsPairing: true },
+    { id: "daal", name: "燉煮印式扁豆", en: "Daal Curry", price: 230, desc: "印度人日常吃的一道料理，扁豆泥與番茄燉煮，超適合配飯沾餅，最具代表的印度家常菜。", needsPairing: true },
+    { id: "mixed", name: "什錦綜合蔬菜", en: "Mixed Vegetable Curry", price: 300, desc: "帶有香香的新鮮綜合時蔬，蔬菜含水量較高，與濃郁咖哩醬搭配起來清爽溫順不膩口。", needsPairing: true },
+    { id: "aloo", name: "花椰菜烤炒洋芋", en: "Aloo Gobi", price: 280, desc: "數種香料快火翻炒著花椰菜與馬鈴薯，實在意想不到的食材組合。", needsPairing: true },
   ],
 };
 
@@ -832,13 +832,14 @@ function PairingModal({ sourceName, onConfirm, onCancel, onSkip }) {
 
 /* 內場出單卡：進來就能直接勾選品項，全部勾完（或手動）按一下就完成出餐 */
 /* 左滑刪除：拖過門檻就觸發刪除，放開沒過門檻就彈回去。滑鼠拖曳、觸控都可以用。 */
-function SwipeToDelete({ onDelete, children }) {
+function SwipeToDelete({ onDelete, children, pill = false }) {
   const [dx, setDx] = useState(0);
   const dxRef = useRef(0); // 跟 dx state 同步更新，但 ref 沒有 React 重新渲染的時間差，
                             // finish() 判斷門檻一定要讀這個才不會在快速滑動時讀到過期的值
   const dragging = useRef(false);
   const startX = useRef(0);
-  const THRESHOLD = -96;
+  const THRESHOLD = pill ? -50 : -96;
+  const maxDrag = pill ? -80 : -160;
 
   const onPointerDown = (e) => {
     dragging.current = true;
@@ -846,7 +847,7 @@ function SwipeToDelete({ onDelete, children }) {
   };
   const onPointerMove = (e) => {
     if (!dragging.current) return;
-    const delta = Math.min(0, Math.max(e.clientX - startX.current, -160));
+    const delta = Math.min(0, Math.max(e.clientX - startX.current, maxDrag));
     dxRef.current = delta;
     setDx(delta);
   };
@@ -861,11 +862,11 @@ function SwipeToDelete({ onDelete, children }) {
   };
 
   return (
-    <div className="relative">
-      <div className="absolute inset-0 flex items-center justify-end pr-6 rounded-lg" style={{ background: "var(--maroon)" }}>
+    <div className="relative" style={pill ? { display: "inline-block" } : undefined}>
+      <div className={`absolute inset-0 flex items-center justify-end ${pill ? "pr-2.5 rounded-full" : "pr-6 rounded-lg"}`} style={{ background: "var(--maroon)" }}>
         <div className="flex items-center gap-1.5" style={{ color: "var(--paper)" }}>
-          <Trash2 size={16} />
-          <span className="text-xs font-semibold">左滑刪除</span>
+          <Trash2 size={pill ? 12 : 16} />
+          {!pill && <span className="text-xs font-semibold">左滑刪除</span>}
         </div>
       </div>
       <div
@@ -1646,19 +1647,11 @@ function App() {
               <h3 style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-base font-semibold mb-3 mt-8 opacity-80">已出餐紀錄</h3>
               <div className="flex flex-wrap gap-2">
                 {servedOrders.map((o) => (
-                  <span key={o.id} className="text-xs pl-2.5 pr-1.5 py-1 rounded-full border flex items-center gap-1.5" style={{ borderColor: "var(--line)", color: "var(--ink)" }}>
-                    第{o.table}桌．{fmt(o.total)}．{o.payment === "unpaid" ? "未收款" : o.payment === "cash" ? "現金" : "轉帳"}
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`確定要刪除第 ${o.table} 桌這筆已出餐紀錄嗎？`)) removeOrder(o.id);
-                      }}
-                      title="刪除這筆紀錄"
-                      className="flex items-center justify-center rounded-full opacity-50"
-                      style={{ width: 15, height: 15 }}
-                    >
-                      <X size={11} />
-                    </button>
-                  </span>
+                  <SwipeToDelete key={o.id} onDelete={() => removeOrder(o.id)} pill>
+                    <span className="text-xs pl-2.5 pr-1.5 py-1 rounded-full border flex items-center" style={{ borderColor: "var(--line)", color: "var(--ink)", background: "var(--paper)" }}>
+                      第{o.table}桌．{fmt(o.total)}．{o.payment === "unpaid" ? "未收款" : o.payment === "cash" ? "現金" : "轉帳"}
+                    </span>
+                  </SwipeToDelete>
                 ))}
               </div>
             </>
