@@ -82,6 +82,7 @@ const AlertCircle = (props) => (<Icon {...props}><circle cx="12" cy="12" r="9" /
 const QrCode = (props) => (<Icon {...props}><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><line x1="14" y1="14" x2="14" y2="17" /><line x1="17" y1="14" x2="21" y2="14" /><line x1="14" y1="21" x2="17" y2="21" /><line x1="19" y1="17" x2="21" y2="17" /><line x1="19" y1="19" x2="21" y2="19" /><line x1="21" y1="19" x2="21" y2="21" /></Icon>);
 const Copy = (props) => (<Icon {...props}><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></Icon>);
 const Lock = (props) => (<Icon {...props}><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></Icon>);
+const Pencil = (props) => (<Icon {...props}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="M15 5l4 4" /></Icon>);
 
 /* ------------------------------------------------------------------ */
 /*  雲端連線：Supabase（取代原本只能在 Claude 對話裡用的 window.storage） */
@@ -196,6 +197,13 @@ async function updateOrderItems(orderId, items) {
   const { error } = await sb.from("orders").update({ items }).eq("id", orderId);
   if (error) console.error("更新品項狀態失敗", error);
 }
+/* 內場修改訂單內容用：品項跟金額要一起改，避免總額跟實際品項對不起來 */
+async function updateOrderItemsAndTotal(orderId, items, total) {
+  if (!sb) return { error: new Error("Supabase 尚未設定") };
+  const { error } = await sb.from("orders").update({ items, total }).eq("id", orderId);
+  if (error) console.error("修改訂單內容失敗", error);
+  return { error };
+}
 async function updateOrderStatus(orderId, status) {
   if (!sb) return;
   const { error } = await sb.from("orders").update({ status }).eq("id", orderId);
@@ -246,29 +254,29 @@ const PROTEINS = [
 
 const CURRY_BASES = {
   chicken: [
-    { id: "butter", name: "濃郁奶香雞咖哩", en: "Butter Chicken", price: 330, desc: "奶香濃厚層次分明，最多人點的招牌必吃。", featured: true, badge: "人氣No.1", needsPairing: true, photo: IMG_CURRY },
-    { id: "tikka", name: "不簡單烤雞肉咖哩", en: "Chicken Tikka Masala", price: 330, desc: "基底咖哩醬加了鮮奶油提味，與番茄翻炒，口感更香濃，回味無窮。", featured: true, needsPairing: true },
-    { id: "daal", name: "印式扁豆燉雞肉", en: "Daal Chicken", price: 310, desc: "印度家常扁豆泥與雞肉慢燉，口感似馬鈴薯醬，超級適合配飯沾餅。", needsPairing: true },
-    { id: "palak", name: "菠醬雞肉綠咖哩", en: "Palak Chicken", price: 310, desc: "運用大量菠菜，現做打成泥，與雞肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
+    { id: "butter", name: "濃郁奶香雞咖哩", en: "Butter Chicken", price: 330, desc: "奶香濃厚層次分明，最多人點的招牌必吃。", featured: true, badge: "🔥 招牌藏印咖哩", needsPairing: true, photo: IMG_CURRY },
+    { id: "tikka", name: "不簡單烤雞肉咖哩", en: "Chicken Tikka Masala", price: 330, desc: "基底咖哩醬加了鮮奶油提味，與番茄翻炒，口感更香濃，回味無窮。", featured: true, badge: "人氣No.1", needsPairing: true },
+    { id: "daal", name: "印式扁豆燉雞肉", en: "Daal Chicken", price: 310, desc: "印度家常扁豆泥與雞肉慢燉，口感似馬鈴薯醬，超級適合配飯沾餅。", featured: true, needsPairing: true },
+    { id: "palak", name: "菠醬雞肉綠咖哩", en: "Palak Chicken", price: 310, desc: "運用大量菠菜，現做打成泥，與雞肉燉煮出食材的鮮味，清爽不油膩。", featured: true, needsPairing: true },
   ],
   beef: [
-    { id: "classic", name: "經典藏印咖哩牛", en: "Beef Curry", price: 330, desc: "數種香料與帶骨牛肉同時熬出的咖哩醬底，肉質Q軟嫩牙，濃郁化在嘴中。", featured: true, needsPairing: true },
-    { id: "daal", name: "印式扁豆燉牛", en: "Daal Beef", price: 330, desc: "印度家常扁豆泥與牛肉慢燉，口感似馬鈴薯醬，每口都吃得到家鄉味。", needsPairing: true },
-    { id: "palak", name: "菠醬綠咖哩牛", en: "Palak Beef", price: 330, desc: "運用大量菠菜現打成泥，再與牛肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
-    { id: "keema", name: "碎炒牛肉咖哩", en: "Keema Curry", price: 330, desc: "主廚快火爆炒出碎絞肉香氣，與馬鈴薯燉煮出濃厚的肉咖哩，相當下飯。", needsPairing: true },
-    { id: "coconut", name: "南洋椰香牛肉", en: "Coconut Beef", price: 330, desc: "加入南洋椰奶原汁，就像奔放在印度洋上，熱情的一道菜。", needsPairing: true },
+    { id: "classic", name: "經典藏印咖哩牛", en: "Beef Curry", price: 330, desc: "數種香料與大塊牛肉同時熬出的咖哩醬底，肉質Q軟嫩牙，濃郁化在嘴中。", featured: true, needsPairing: true },
+    { id: "daal", name: "印式扁豆燉牛", en: "Daal Beef", price: 330, desc: "印度家常扁豆泥與牛肉慢燉，口感似馬鈴薯醬，每口都吃得到家鄉味。", featured: true, needsPairing: true },
+    { id: "palak", name: "菠醬綠咖哩牛", en: "Palak Beef", price: 330, desc: "運用大量菠菜現打成泥，再與牛肉燉煮出食材的鮮味，清爽不油膩。", featured: true, needsPairing: true },
+    { id: "keema", name: "碎炒牛肉咖哩", en: "Keema Curry", price: 330, desc: "主廚快火爆炒出碎絞肉香氣，與馬鈴薯燉煮出濃厚的肉咖哩，相當下飯。", featured: true, needsPairing: true },
+    { id: "coconut", name: "南洋椰香牛肉", en: "Coconut Beef", price: 330, desc: "加入南洋椰奶原汁，就像奔放在印度洋上，熱情的一道菜。", featured: true, needsPairing: true },
   ],
   mutton: [
     { id: "classic", name: "經典藏印咖哩羊", en: "Mutton Curry", price: 360, desc: "數種香料與帶骨羊肉同時熬出的咖哩醬底，肉質Q軟嫩牙，濃郁化在嘴中。", featured: true, needsPairing: true },
-    { id: "daal", name: "印式扁豆燉羊", en: "Daal Mutton", price: 360, desc: "印度家常扁豆泥與羊肉慢燉，口感似馬鈴薯醬，每口都吃得到家鄉味。", needsPairing: true },
-    { id: "palak", name: "菠醬綠咖哩羊", en: "Palak Mutton", price: 360, desc: "運用大量菠菜現打成泥，再與羊肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
+    { id: "daal", name: "印式扁豆燉羊", en: "Daal Mutton", price: 360, desc: "印度家常扁豆泥與羊肉慢燉，口感似馬鈴薯醬，每口都吃得到家鄉味。", featured: true, needsPairing: true },
+    { id: "palak", name: "菠醬綠咖哩羊", en: "Palak Mutton", price: 360, desc: "運用大量菠菜現打成泥，再與羊肉燉煮出食材的鮮味，清爽不油膩。", featured: true, needsPairing: true },
   ],
   veg: [
-    { id: "creamy_paneer", name: "濃郁奶香帕尼咖哩", en: "Creamy Butter Paneer", price: 370, desc: "手工乳酪塊以鮮奶油與腰果醬燉煮，綿密香甜，蔬食者的濃郁新選擇。", featured: true, badge: "新品", needsPairing: true },
-    { id: "palak_paneer", name: "綠菠菜帕尼咖哩", en: "Palak Paneer", price: 330, desc: "大量菠菜現打成泥加上高原豆腐乳酪，口感Q軟咀嚼著乳清香，清爽不油膩。", featured: true, needsPairing: true },
-    { id: "daal", name: "燉煮印式扁豆", en: "Daal Curry", price: 230, desc: "印度人日常吃的一道料理，扁豆泥與番茄燉煮，超適合配飯沾餅，最具代表的印度家常菜。", needsPairing: true },
-    { id: "mixed", name: "什錦綜合蔬菜", en: "Mixed Vegetable Curry", price: 300, desc: "帶有香香的新鮮綜合時蔬，蔬菜含水量較高，與濃郁咖哩醬搭配起來清爽溫順不膩口。", needsPairing: true },
-    { id: "aloo", name: "花椰菜烤炒洋芋", en: "Aloo Gobi", price: 280, desc: "數種香料快火翻炒著花椰菜與馬鈴薯，實在意想不到的食材組合。", needsPairing: true },
+    { id: "creamy_paneer", name: "濃郁奶香帕尼咖哩", en: "Creamy Butter Paneer", price: 330, desc: "手工乳酪塊以鮮奶油與腰果醬燉煮，綿密香甜，蔬食者的濃郁新選擇。", featured: true, badge: "新品", needsPairing: true },
+    { id: "palak_paneer", name: "綠菠菠帕尼咖哩", en: "Palak Paneer", price: 330, desc: "大量菠菜現打成泥加上高原豆腐乳酪，口感Q軟咀嚼著乳清香，清爽不油膩。", featured: true, needsPairing: true },
+    { id: "daal", name: "燉煮印式扁豆", en: "Daal Curry", price: 230, desc: "印度人日常吃的一道料理，扁豆泥與番茄燉煮，超適合配飯沾餅，最具代表的印度家常菜。", featured: true, needsPairing: true },
+    { id: "mixed", name: "什錦綜合蔬菜", en: "Mixed Vegetable Curry", price: 300, desc: "帶有香香的新鮮綜合時蔬，蔬菜含水量較高，與濃郁咖哩醬搭配起來清爽溫順不膩口。", featured: true, needsPairing: true },
+    { id: "aloo", name: "花椰菜烤炒洋芋", en: "Aloo Gobi", price: 300, desc: "數種香料快火翻炒著花椰菜與馬鈴薯，實在意想不到的食材組合。", featured: true, needsPairing: true },
   ],
 };
 
@@ -277,62 +285,57 @@ const TRADITIONAL_GROUPED = [
   {
     id: "shapta", name: "藏式爆炒嗆嘴", en: "Shapta", featured: true, photo: IMG_TRADITIONAL,
     desc: "獨門香料的大火快炒，特殊嗆感，搭配清爽蔬菜＆脆口洋蔥，彷彿奔放在草原鄉野。",
-    variants: [{ key: "beef", label: "牛", price: 230 }, { key: "mutton", label: "羊", price: 250 }],
+    variants: [{ key: "beef", label: "牛", price: 260 }, { key: "mutton", label: "羊", price: 280 }],
   },
   {
-    id: "phingshya", name: "藏式品夏奶香阿嚕", en: "Phingshya",
+    id: "phingshya", name: "藏式品夏奶香阿嚕", en: "Phingshya", featured: true,
     desc: "軟嫩馬鈴薯Q彈粉粒再佐以奶香起司入菜，新意與心思多層次呈現，只吃一口便覺盛情難卻。",
-    variants: [{ key: "beef", label: "牛", price: 270 }, { key: "mutton", label: "羊", price: 290 }],
+    variants: [{ key: "beef", label: "牛", price: 300 }, { key: "mutton", label: "羊", price: 320 }],
   },
   {
-    id: "tikka", name: "藏印爐烤雞塊", en: "Chicken Tikka", price: 250, featured: true,
+    id: "tikka", name: "藏印爐烤雞塊", en: "Chicken Tikka", price: 280, featured: true,
     desc: "使用自製優格與獨門香料醃漬的無骨雞腿肉，鎖住鮮嫩多汁，保留肉汁與雞肉鮮甜味。",
   },
   {
-    id: "momo", name: "西藏MOMO記憶蒸餃(10顆)", en: "Momo Dumplings", featured: true, photo: IMG_MOMO,
+    id: "momo", name: "西藏MOMO記憶蒸餃(9顆)", en: "Momo Dumplings", featured: true, photo: IMG_MOMO,
     desc: "來自高原濃厚的記憶就讓這碗蒸餃陪你，招牌必點。",
-    variants: [{ key: "pork", label: "豬肉", price: 160 }, { key: "beef", label: "牛肉", price: 180 }],
+    variants: [{ key: "pork", label: "豬肉", price: 170 }, { key: "beef", label: "牛肉", price: 190 }],
   },
   {
-    id: "pastry", name: "藏式噴炸飛碟(4顆)", en: "Deep Fried Pastry",
-    desc: "人氣的西藏街頭小吃，能不試試嗎？一口咬下時，小心燙口。（每日數量限定）",
-    variants: [{ key: "pork", label: "豬肉", price: 120 }, { key: "beef", label: "牛肉", price: 150 }],
-  },
-  {
-    id: "raita", name: "藏原清爽自養優格碗", en: "Raita", price: 100,
-    desc: "獨門香料混合自製優格與碎小黃瓜、番茄、蒸鷹嘴豆，逆轉你的味蕾。",
+    id: "raita", name: "藏原清爽自養優格碗", en: "Raita", price: 130, featured: true,
+    desc: "獨門香料混合自製優格與碎小黃瓜、番茄、蒸鷹嘴豆or扁豆泥，逆轉你的味蕾。",
   },
 ];
 
 const NAAN = [
   { id: "n1", name: "原味烤餅", en: "Plain", price: 60, desc: "外皮酥香、內裡鬆軟，百搭原味，沾咖哩醬最對味。" },
-  { id: "n2", name: "奶油烤餅", en: "Butter", price: 80, desc: "刷上奶油增添香氣，比原味更濃郁順口。" },
-  { id: "n3", name: "蒜味烤餅", en: "Garlic", price: 80, desc: "蒜香濃郁夠味，是店內詢問度最高的口味，必點！", featured: true, badge: "🔥必點" },
+  { id: "n2", name: "奶油烤餅", en: "Butter", price: 80, desc: "刷上奶油增添香氣，比原味更濃郁順口。", featured: true, badge: "🔥必點" },
+  { id: "n3", name: "蒜味烤餅", en: "Garlic", price: 80, desc: "蒜香濃郁夠味，是店內詢問度最高的口味。" },
   { id: "n4", name: "起司烤餅", en: "Cheese", price: 100, desc: "滿滿起司內餡，牽絲效果十足，起司控別錯過。" },
   { id: "n5", name: "煉乳烤餅", en: "Condensed Milk", price: 80, desc: "香甜煉乳夾心，當作飯後甜點烤餅剛剛好，喜歡甜口味必吃。" },
   { id: "n6", name: "朱古力烤餅", en: "Chocolate", price: 80, desc: "濃郁巧克力內餡，甜而不膩，也是很受歡迎的飯後甜點選擇。" },
 ];
 
 const ADDONS = [
-  { id: "up4", name: "加一份藏印爐烤雞塊", price: 250, cat: "traditional" },
+  { id: "up4", name: "加一份藏印爐烤雞塊", price: 280, cat: "traditional" },
 ];
 
 const STAPLE = [
   { id: "s1", name: "泰香飯", en: "Rice", price: 20, desc: "最適合搭配藏印咖哩的黃金米粒口感，粒粒分明不軟爛。" },
   { id: "s2", name: "藏式炸餅", en: "Tibetan Deep Fried Bread", price: 80, desc: "口感蓬鬆，香酥脆，滿滿的酥炸餅皮香。" },
-  { id: "s3", name: "糌粑(5顆)", en: "Tsampa", price: 120, desc: "藏人最經典穀物，青稞製作，吃起來有豆沙口感，帶著淡淡麴茶的味道。" },
+  { id: "s3", name: "糌粑(5顆)", en: "Tsampa", price: 120, desc: "藏人最經典高山穀物，青稞製作，吃起來有豆餡口感，帶著淡淡麵茶的味道。" },
 ];
 
 /* 印度優格奶昔：口味只是差異，合併成一張卡＋口味選擇 */
 const LASSI_ITEM = {
   id: "lassi", name: "印度優格奶昔", en: "Lassi",
-  desc: "自養優格與牛奶調製，濃醇滑順的高原優格飲。",
+  desc: "自養優格與牛奶調製，濃醇滑順的高原優格飲！",
   variants: [
-    { key: "plain", label: "原味", price: 130 },
-    { key: "banana", label: "香蕉", price: 130 },
     { key: "honey", label: "蜂蜜", price: 130 },
-    { key: "rose", label: "玫瑰", price: 130 },
     { key: "mango", label: "芒果", price: 130 },
+    { key: "rose", label: "玫瑰", price: 130 },
+    { key: "banana", label: "香蕉", price: 130 },
+    { key: "plain", label: "原味", price: 130 },
   ],
 };
 
@@ -365,7 +368,7 @@ const DRINK_CHOICES = [
   { label: "雪碧", extra: 0 },
   { label: "無糖綠茶", extra: 0 },
 ];
-const LASSI_CHOICES = ["原味", "香蕉", "蜂蜜", "玫瑰", "芒果"].map((label) => ({ label, extra: 0 }));
+const LASSI_CHOICES = ["蜂蜜", "芒果", "玫瑰", "香蕉", "原味"].map((label) => ({ label, extra: 0 }));
 const NAAN_CHOICES = [
   { label: "原味烤餅", extra: 0 },
   { label: "蒜味烤餅", extra: 20 },
@@ -376,7 +379,7 @@ const NAAN_CHOICES = [
 const COMBO_TIERS = [
   { id: "comboC", tier: "C", name: "陽春吃法", price: 20, desc: "單純加一份泰香飯", ribbon: null, subChoices: [] },
   {
-    id: "comboA", tier: "A", name: "招牌吃法", price: 90, desc: "泰香飯＋烤餅＋飲料", ribbon: "🔥 多數人這樣點",
+    id: "comboA", tier: "A", name: "招牌吃法", price: 100, desc: "泰香飯＋烤餅＋飲料", ribbon: "🔥 多數人這樣點",
     subChoices: [
       { key: "naan", label: "烤餅口味", options: NAAN_CHOICES },
       { key: "drink", label: "飲料口味", options: DRINK_CHOICES },
@@ -430,7 +433,8 @@ const CAT_COLOR = {
   other: "var(--ink)",
 };
 
-const TABLES = Array.from({ length: 12 }, (_, i) => i + 1);
+/* 共 8 桌，避開「4」這個數字（諧音不好），用 9 補上缺額 */
+const TABLES = [1, 2, 3, 5, 6, 7, 8, 9];
 
 const fmt = (n) => `NT$${n.toLocaleString()}`;
 const genId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -591,7 +595,7 @@ function DishCard({ item, onAdd, featuredLabel, cat }) {
     >
       {(item.badge || item.featured) && (
         <span
-          className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full z-10"
+          className="absolute top-2 left-2 text-[11px] font-bold px-2 py-0.5 rounded-full z-10"
           style={{ background: item.badge === "新品" ? "var(--juniper)" : "var(--maroon)", color: "var(--paper)" }}
         >
           {item.badge ? item.badge : `🔥 ${featuredLabel || "主廚推薦"}`}
@@ -615,7 +619,7 @@ function DishCard({ item, onAdd, featuredLabel, cat }) {
               <button
                 key={v.key}
                 onClick={() => setVi(idx)}
-                className="text-[11px] font-medium px-2.5 py-1 rounded-full border"
+                className="text-[12px] font-medium px-2.5 py-1 rounded-full border"
                 style={{
                   borderColor: vi === idx ? "var(--maroon)" : "var(--line)",
                   background: vi === idx ? "var(--maroon)" : "transparent",
@@ -706,12 +710,12 @@ function ComboTierCard({ tier, onAdd }) {
   };
   return (
     <div className="card p-3.5 relative" style={{ borderColor: tier.ribbon ? "var(--saffron)" : "var(--line)", borderWidth: tier.ribbon ? 2 : 1 }}>
-      {tier.ribbon && <span className="absolute -top-2.5 left-3 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "var(--maroon)", color: "var(--paper)" }}>{tier.ribbon}</span>}
+      {tier.ribbon && <span className="absolute -top-2.5 left-3 text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "var(--maroon)", color: "var(--paper)" }}>{tier.ribbon}</span>}
       <p className="text-sm font-bold mt-1" style={{ color: "var(--ink)" }}>{tier.tier}／{tier.name}</p>
       <p className="text-xs mt-1 opacity-70" style={{ color: "var(--ink)" }}>{tier.desc}</p>
       {(tier.subChoices || []).map((sc) => (
         <div key={sc.key} className="mt-2.5">
-          <p className="text-[10px] font-semibold opacity-60 mb-1" style={{ color: "var(--ink)" }}>{sc.label}</p>
+          <p className="text-[11px] font-semibold opacity-60 mb-1" style={{ color: "var(--ink)" }}>{sc.label}</p>
           <div className="flex gap-1.5 flex-wrap">
             {sc.options.map((opt) => {
               const isSel = choices[sc.key] === opt.label;
@@ -719,7 +723,7 @@ function ComboTierCard({ tier, onAdd }) {
                 <button
                   key={opt.label}
                   onClick={() => setChoices((c) => ({ ...c, [sc.key]: opt.label }))}
-                  className="text-[11px] font-medium px-2.5 py-1 rounded-full border flex items-center gap-1"
+                  className="text-[12px] font-medium px-2.5 py-1 rounded-full border flex items-center gap-1"
                   style={{ borderColor: isSel ? "var(--maroon)" : "var(--line)", background: isSel ? "var(--maroon)" : "transparent", color: isSel ? "var(--paper)" : "var(--ink)" }}
                 >
                   {opt.label}
@@ -784,7 +788,7 @@ function PairingModal({ sourceName, onConfirm, onSkip }) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={isSmall ? "text-sm" : "text-sm font-bold"} style={{ color: "var(--ink)" }}>{c.tier}／{c.name}</span>
                       {c.ribbon && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "var(--saffron)", color: "var(--maroon-dark)" }}>{c.ribbon}</span>
+                        <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "var(--saffron)", color: "var(--maroon-dark)" }}>{c.ribbon}</span>
                       )}
                     </div>
                     <p className="text-xs opacity-70 mt-0.5" style={{ color: "var(--ink)" }}>{c.desc}</p>
@@ -795,7 +799,7 @@ function PairingModal({ sourceName, onConfirm, onSkip }) {
                   <div className="px-3 pb-3 pt-1 space-y-2">
                     {c.subChoices.map((sc) => (
                       <div key={sc.key}>
-                        <p className="text-[10px] font-semibold opacity-60 mb-1" style={{ color: "var(--ink)" }}>{sc.label}</p>
+                        <p className="text-[11px] font-semibold opacity-60 mb-1" style={{ color: "var(--ink)" }}>{sc.label}</p>
                         <div className="flex gap-1.5 flex-wrap">
                           {sc.options.map((opt) => {
                             const isSel = choices[sc.key] === opt.label;
@@ -803,7 +807,7 @@ function PairingModal({ sourceName, onConfirm, onSkip }) {
                               <button
                                 key={opt.label}
                                 onClick={() => setChoices((ch) => ({ ...ch, [sc.key]: opt.label }))}
-                                className="text-[11px] font-medium px-2.5 py-1 rounded-full border flex items-center gap-1"
+                                className="text-[12px] font-medium px-2.5 py-1 rounded-full border flex items-center gap-1"
                                 style={{
                                   borderColor: isSel ? "var(--maroon)" : "var(--line)",
                                   background: isSel ? "var(--maroon)" : "transparent",
@@ -943,7 +947,7 @@ function SwipeToComplete({ onTrigger, children }) {
   );
 }
 
-function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment, onDelete }) {
+function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment, onDelete, onEdit }) {
   const allDone = o.items.length > 0 && o.items.every((i) => i.done);
   const pendingItems = o.items.filter((i) => !i.done);
   const doneItems = o.items.filter((i) => i.done);
@@ -966,6 +970,9 @@ function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment, onDele
           <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: elapsed.color, color: "var(--paper)" }}>
             {elapsed.mins} 分鐘
           </span>
+          <button onClick={() => onEdit(o)} title="修改訂單內容" className="flex items-center justify-center rounded-full opacity-50" style={{ width: 18, height: 18, color: "var(--maroon)" }}>
+            <Pencil size={13} />
+          </button>
           <button onClick={handleDelete} title="刪除這張訂單" className="flex items-center justify-center rounded-full opacity-50" style={{ width: 18, height: 18, color: "var(--maroon)" }}>
             <X size={13} />
           </button>
@@ -974,11 +981,11 @@ function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment, onDele
       <p style={{ fontFamily: "var(--font-mono)" }} className="text-xs opacity-60 mb-2">
         #{o.id.slice(-6)}．{new Date(o.createdAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
       </p>
-      <p className="text-[10px] mb-2 opacity-50" style={{ color: "var(--ink)" }}>每一項向右滑過去，完成後會跳到下面的已完成區</p>
+      <p className="text-[11px] mb-2 opacity-50" style={{ color: "var(--ink)" }}>每一項向右滑過去，完成後會跳到下面的已完成區</p>
       <div className="mb-2 space-y-1.5">
         {CAT_ORDER.filter((c) => grouped[c] && grouped[c].length > 0).map((c) => (
           <div key={c} className="rounded-md overflow-hidden" style={{ border: `1.5px solid ${CAT_COLOR[c]}` }}>
-            <p className="text-[10px] font-bold px-2 py-1" style={{ background: CAT_COLOR[c], color: "var(--paper)" }}>{CAT_LABEL[c]}</p>
+            <p className="text-[11px] font-bold px-2 py-1" style={{ background: CAT_COLOR[c], color: "var(--paper)" }}>{CAT_LABEL[c]}</p>
             <div className="px-1.5">
               {grouped[c].map((i) => (
                 <SwipeToComplete key={i.id} onTrigger={() => onToggleItem(o.id, i.id)}>
@@ -998,7 +1005,7 @@ function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment, onDele
       </div>
       {doneItems.length > 0 && (
         <div className="mb-2 rounded-md overflow-hidden" style={{ border: "1.5px solid var(--juniper)" }}>
-          <p className="text-[10px] font-bold px-2 py-1" style={{ background: "var(--juniper)", color: "var(--paper)" }}>✓ 已完成（{doneItems.length}）．點一下可復原</p>
+          <p className="text-[11px] font-bold px-2 py-1" style={{ background: "var(--juniper)", color: "var(--paper)" }}>✓ 已完成（{doneItems.length}）．點一下可復原</p>
           <div className="px-1.5">
             {doneItems.map((i) => (
               <button key={i.id} onClick={() => onToggleItem(o.id, i.id)} className="w-full flex items-center gap-2 py-1.5 text-left">
@@ -1028,8 +1035,82 @@ function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment, onDele
   );
 }
 
+/* 內場修改訂單：怕客人點錯，讓內場可以調整數量／刪除單一品項，存檔後直接同步回資料庫 */
+function EditOrderModal({ order, onSave, onClose }) {
+  const [items, setItems] = useState(() => order.items.map((i) => ({ ...i })));
+  const [saving, setSaving] = useState(false);
+  const total = items.reduce((sum, i) => sum + i.price * i.qty, 0);
+
+  const changeQty = (id, delta) => {
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i)).filter((i) => i.qty > 0));
+  };
+  const removeItem = (id) => setItems((prev) => prev.filter((i) => i.id !== id));
+
+  const handleSave = async () => {
+    if (items.length === 0) {
+      alert("訂單品項不能清空喔，如果整張訂單都不要了，請用刪除這張訂單的功能。");
+      return;
+    }
+    setSaving(true);
+    await onSave(items, total);
+    setSaving(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: "rgba(59,46,34,.55)" }}>
+      <div className="card w-full sm:max-w-md p-5 slide-up" style={{ borderRadius: "16px 16px 0 0", maxHeight: "88vh", overflowY: "auto" }}>
+        <div className="flex items-start justify-between mb-1">
+          <div>
+            <p className="text-xs opacity-60" style={{ color: "var(--ink)" }}>第 {order.table} 桌．#{order.id.slice(-6)}</p>
+            <h3 style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-lg font-bold">修改訂單內容</h3>
+          </div>
+          <button onClick={onClose} title="關閉" className="p-1 opacity-50"><X size={18} /></button>
+        </div>
+        <p className="text-xs mb-4" style={{ color: "var(--ink)", opacity: 0.7 }}>調整數量或刪除點錯的品項，改完按「儲存變更」就會同步到內場看板。</p>
+
+        <div className="space-y-2 mb-4">
+          {items.map((i) => (
+            <div key={i.id} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: "var(--cream)" }}>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate" style={{ color: "var(--ink)" }}>{i.name}</p>
+                <p style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="text-xs">{fmt(i.price)} × {i.qty} = {fmt(i.price * i.qty)}</p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => changeQty(i.id, -1)} className="rounded-full flex items-center justify-center" style={{ width: 26, height: 26, background: "var(--paper)", border: "1px solid var(--line)" }}><Minus size={13} /></button>
+                <span style={{ fontFamily: "var(--font-mono)" }} className="text-sm w-5 text-center">{i.qty}</span>
+                <button onClick={() => changeQty(i.id, 1)} className="rounded-full flex items-center justify-center" style={{ width: 26, height: 26, background: "var(--paper)", border: "1px solid var(--line)" }}><Plus size={13} /></button>
+                <button onClick={() => removeItem(i.id)} title="刪除這項" className="rounded-full flex items-center justify-center ml-1" style={{ width: 26, height: 26, color: "var(--maroon)" }}><Trash2 size={14} /></button>
+              </div>
+            </div>
+          ))}
+          {items.length === 0 && (
+            <p className="text-xs text-center py-4 opacity-50" style={{ color: "var(--ink)" }}>已經沒有品項了，儲存前至少留一項，或直接用刪除整張訂單的功能。</p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between mb-3 pt-2" style={{ borderTop: "1px dashed var(--line)" }}>
+          <span className="text-sm font-semibold" style={{ color: "var(--ink)" }}>修改後金額</span>
+          <span style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="text-base font-bold">{fmt(total)}</span>
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={saving || items.length === 0}
+          className="w-full py-3 rounded-xl text-sm font-bold mb-2"
+          style={{ background: "var(--maroon)", color: "var(--paper)", opacity: saving || items.length === 0 ? 0.5 : 1 }}
+        >
+          {saving ? "儲存中…" : "儲存變更"}
+        </button>
+        <button onClick={onClose} className="w-full text-center text-xs py-1 opacity-50" style={{ color: "var(--ink)" }}>
+          取消，不要修改
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* 加購推薦彈窗：套餐確認後緊接著跳出，讓客人一次把配料加齊 */
-function AddonUpsellModal({ onAddAddon, onAddMomo, onAddShapta, onClose, cartCount, cartTotal }) {
+function AddonUpsellModal({ onAddAddon, onAddMomo, onClose, cartCount, cartTotal }) {
   const [justAdded, setJustAdded] = useState({});
 
   const flash = (key) => {
@@ -1045,11 +1126,6 @@ function AddonUpsellModal({ onAddAddon, onAddMomo, onAddShapta, onClose, cartCou
     onAddMomo(key);
     flash(`momo-${key}`);
   };
-  const handleShapta = (key) => {
-    onAddShapta(key);
-    flash(`shapta-${key}`);
-  };
-
   return (
     <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: "rgba(59,46,34,.55)" }}>
       <div className="card w-full sm:max-w-md p-5 slide-up" style={{ borderRadius: "16px 16px 0 0", maxHeight: "88vh", overflowY: "auto" }}>
@@ -1067,21 +1143,12 @@ function AddonUpsellModal({ onAddAddon, onAddMomo, onAddShapta, onClose, cartCou
               </button>
             );
           })}
-          {[{ key: "beef", label: "牛肉", price: 180 }, { key: "pork", label: "豬肉", price: 160 }].map((m) => {
+          {[{ key: "beef", label: "牛肉", price: 190 }, { key: "pork", label: "豬肉", price: 170 }].map((m) => {
             const added = justAdded[`momo-${m.key}`];
             return (
               <button key={m.key} onClick={() => handleMomo(m.key)} className="flex items-center justify-between text-sm px-3 py-2.5 rounded-lg" style={{ background: added ? "var(--juniper)" : "var(--cream)", transition: "background .15s ease" }}>
                 <span style={{ color: added ? "var(--paper)" : "var(--ink)" }}>{added ? "✓ 已加入" : `加購西藏MOMO記憶蒸餃 ${m.label}`}</span>
                 <span style={{ fontFamily: "var(--font-mono)", color: added ? "var(--paper)" : "var(--maroon)" }} className="font-semibold">+{m.price}</span>
-              </button>
-            );
-          })}
-          {[{ key: "beef", label: "牛", price: 230 }, { key: "mutton", label: "羊", price: 250 }].map((s) => {
-            const added = justAdded[`shapta-${s.key}`];
-            return (
-              <button key={s.key} onClick={() => handleShapta(s.key)} className="flex items-center justify-between text-sm px-3 py-2.5 rounded-lg" style={{ background: added ? "var(--juniper)" : "var(--cream)", transition: "background .15s ease" }}>
-                <span style={{ color: added ? "var(--paper)" : "var(--ink)" }}>{added ? "✓ 已加入" : `🔥 加購藏式爆炒嗆嘴 ${s.label}`}</span>
-                <span style={{ fontFamily: "var(--font-mono)", color: added ? "var(--paper)" : "var(--maroon)" }} className="font-semibold">+{s.price}</span>
               </button>
             );
           })}
@@ -1142,8 +1209,8 @@ function TableQrCard({ table, origin, copied, onCopy }) {
     <div className="card p-3 flex flex-col items-center text-center">
       <p style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-sm font-bold mb-2">第 {table} 桌</p>
       <div ref={boxRef} className="rounded-md overflow-hidden" style={{ border: "1px solid var(--line)", width: 168, height: 168 }} />
-      <p className="text-[10px] mt-2 break-all opacity-60" style={{ color: "var(--ink)", fontFamily: "var(--font-mono)" }}>{url}</p>
-      <button onClick={() => onCopy(url, table)} className="mt-2 flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: copied ? "var(--juniper)" : "var(--cream)", color: copied ? "var(--paper)" : "var(--ink)" }}>
+      <p className="text-[11px] mt-2 break-all opacity-60" style={{ color: "var(--ink)", fontFamily: "var(--font-mono)" }}>{url}</p>
+      <button onClick={() => onCopy(url, table)} className="mt-2 flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-full" style={{ background: copied ? "var(--juniper)" : "var(--cream)", color: copied ? "var(--paper)" : "var(--ink)" }}>
         <Copy size={11} /> {copied ? "已複製" : "複製連結"}
       </button>
     </div>
@@ -1415,6 +1482,18 @@ function App() {
     setOrders((prev) => prev.filter((o) => o.id !== id));
   };
 
+  const [editingOrder, setEditingOrder] = useState(null);
+  const saveOrderEdit = async (items, total) => {
+    const orderId = editingOrder.id;
+    const { error } = await updateOrderItemsAndTotal(orderId, items, total);
+    if (error) {
+      alert("儲存失敗：" + error.message);
+      return;
+    }
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, items, total } : o)));
+    setEditingOrder(null);
+  };
+
   const activeOrders = orders.filter((o) => o.status === "active").sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   const servedOrders = orders.filter((o) => o.status === "served").sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10);
 
@@ -1444,12 +1523,12 @@ function App() {
   })();
 
   const momoItem = TRADITIONAL_GROUPED.find((i) => i.id === "momo");
-  const shaptaItem = TRADITIONAL_GROUPED.find((i) => i.id === "shapta");
 
   return (
     <div style={{ fontFamily: "var(--font-body)", background: "var(--cream)" }} className="min-h-screen">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700;900&family=Noto+Sans+TC:wght@400;500;600&family=Rozha+One&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+        html{ font-size:17.5px; }
         :root{
           --cream:#F7ECD3; --paper:#FBF3E3; --maroon:#A6303B; --maroon-dark:#7C2028;
           --saffron:#DE9331; --juniper:#4B6C56; --ink:#3B2E22; --line:#E5CFA0;
@@ -1477,7 +1556,7 @@ function App() {
           <Mountain size={20} style={{ color: "var(--saffron)" }} />
           <div className="min-w-0">
             <div style={{ fontFamily: "var(--font-display)", color: "var(--paper)", fontWeight: 900 }} className="text-base sm:text-xl leading-tight truncate">西藏食</div>
-            <div style={{ fontFamily: "var(--font-accent)", color: "var(--saffron)", letterSpacing: "0.08em" }} className="text-[8px] sm:text-[10px] leading-tight truncate">TIDIAN KITCHEN</div>
+            <div style={{ fontFamily: "var(--font-accent)", color: "var(--saffron)", letterSpacing: "0.08em" }} className="text-[9px] sm:text-[11px] leading-tight truncate">TIDIAN KITCHEN</div>
           </div>
         </div>
         <nav className="flex gap-0.5 sm:gap-1 shrink-0 items-center">
@@ -1507,7 +1586,7 @@ function App() {
               <TabIcon size={16} />
               {id === "order" && cartCount > 0 && (
                 <span
-                  className="absolute -top-1 -right-1 flex items-center justify-center text-[9px] font-bold rounded-full"
+                  className="absolute -top-1 -right-1 flex items-center justify-center text-[10px] font-bold rounded-full"
                   style={{ width: 16, height: 16, background: "var(--maroon)", color: "var(--paper)" }}
                 >
                   {cartCount}
@@ -1565,10 +1644,10 @@ function App() {
                     {myOrders.map((o) => (
                       <div key={o.id} className="rounded-lg p-2.5" style={{ background: "var(--maroon-dark)" }}>
                         <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px]" style={{ color: "var(--paper)", opacity: 0.7, fontFamily: "var(--font-mono)" }}>
+                          <span className="text-[11px]" style={{ color: "var(--paper)", opacity: 0.7, fontFamily: "var(--font-mono)" }}>
                             {new Date(o.createdAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}．單號 {o.id.slice(-6)}
                           </span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: o.status === "served" ? "var(--juniper)" : "var(--saffron)", color: o.status === "served" ? "var(--paper)" : "var(--maroon-dark)" }}>
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: o.status === "served" ? "var(--juniper)" : "var(--saffron)", color: o.status === "served" ? "var(--paper)" : "var(--maroon-dark)" }}>
                             {o.status === "served" ? "✓ 已出餐" : "準備中"}
                           </span>
                         </div>
@@ -1639,7 +1718,6 @@ function App() {
         <AddonUpsellModal
           onAddAddon={(a) => addToCart(a)}
           onAddMomo={(key) => addVariantById(momoItem, key, "traditional")}
-          onAddShapta={(key) => addVariantById(shaptaItem, key, "traditional")}
           onClose={() => {
             setShowAddonUpsell(false);
             setTimeout(() => {
@@ -1649,6 +1727,10 @@ function App() {
           cartCount={cartCount}
           cartTotal={cartTotal}
         />
+      )}
+
+      {editingOrder && (
+        <EditOrderModal order={editingOrder} onSave={saveOrderEdit} onClose={() => setEditingOrder(null)} />
       )}
 
       {/* ================= 顧客點餐 ================= */}
@@ -1711,8 +1793,8 @@ function App() {
               {ADDONS.map((a) => (
                 <QuickAddRow key={a.id} name={a.name} price={a.price} onAdd={() => addToCart(a)} />
               ))}
-              <QuickAddRow name="加購西藏MOMO記憶蒸餃 牛肉" price={180} onAdd={() => addVariantById(momoItem, "beef", "traditional")} />
-              <QuickAddRow name="加購西藏MOMO記憶蒸餃 豬肉" price={160} onAdd={() => addVariantById(momoItem, "pork", "traditional")} />
+              <QuickAddRow name="加購西藏MOMO記憶蒸餃 牛肉" price={190} onAdd={() => addVariantById(momoItem, "beef", "traditional")} />
+              <QuickAddRow name="加購西藏MOMO記憶蒸餃 豬肉" price={170} onAdd={() => addVariantById(momoItem, "pork", "traditional")} />
             </div>
           </div>
 
@@ -1743,7 +1825,10 @@ function App() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
             <DishCard item={LASSI_ITEM} onAdd={addToCart} cat="drink" />
           </div>
-          <p className="text-xs opacity-50 mb-6" style={{ color: "var(--ink)" }}>飯後也可以來份烤餅甜點：煉乳烤餅／朱古力烤餅（見上方烤餅區）。</p>
+          <div className="rounded-lg px-3 py-2.5 mb-6 flex items-center gap-2" style={{ background: "var(--saffron)" }}>
+            <Sparkles size={15} style={{ color: "var(--maroon-dark)" }} className="shrink-0" />
+            <p className="text-xs font-semibold" style={{ color: "var(--maroon-dark)" }}>飯後也可以來份烤餅甜點：煉乳烤餅／朱古力烤餅（見上方烤餅區）。</p>
+          </div>
 
           <SubgroupLabel>🥤 其他飲品</SubgroupLabel>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1767,7 +1852,7 @@ function App() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-2">
             {activeOrders.map((o) => (
-              <KitchenTicket key={o.id} o={o} elapsed={elapsedInfo(o.createdAt)} onToggleItem={toggleItemDone} onComplete={completeOrder} onPayment={setPayment} onDelete={removeOrder} />
+              <KitchenTicket key={o.id} o={o} elapsed={elapsedInfo(o.createdAt)} onToggleItem={toggleItemDone} onComplete={completeOrder} onPayment={setPayment} onDelete={removeOrder} onEdit={setEditingOrder} />
             ))}
           </div>
           {activeOrders.length === 0 && (
