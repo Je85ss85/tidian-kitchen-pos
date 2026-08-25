@@ -480,6 +480,28 @@ function proteinOfCurry(name) {
   }
   return "chicken";
 }
+/* 烤餅／飲品是「每人可以選不同的」，展開成一人一格（key 加上序號），其餘品項維持一格 */
+function expandGroupSetSlots(set) {
+  const out = [];
+  set.slots.forEach((slot) => {
+    if (slot.repeatPerPerson) {
+      for (let i = 1; i <= set.people; i++) out.push({ ...slot, key: `${slot.key}${i}` });
+    } else {
+      out.push(slot);
+    }
+  });
+  return out;
+}
+/* 同名同分類的品項（例如三個人都選蒜味烤餅）合併成一行，內場出單看板才不會出現三條一樣的東西 */
+function mergeGroupSetLines(rawItems) {
+  const map = new Map();
+  rawItems.forEach((r) => {
+    const key = `${r.cat}::${r.name}`;
+    if (map.has(key)) map.get(key).qty += r.qty;
+    else map.set(key, { ...r });
+  });
+  return Array.from(map.values());
+}
 
 const GROUP_SET_TEMPLATES = [
   {
@@ -489,8 +511,8 @@ const GROUP_SET_TEMPLATES = [
       { key: "curry1", label: "咖哩 1", cat: "curry", type: "curry", defaultName: "濃郁奶香雞咖哩" },
       { key: "curry2", label: "咖哩 2", cat: "curry", type: "curry", defaultName: "經典藏印咖哩牛" },
       { key: "side1", label: "小食／傳統料理", cat: "traditional", type: "side", defaultName: "藏原清爽自養優格碗" },
-      { key: "naan", label: "烤餅口味（全體共用 ×2）", cat: "naan", type: "naan", perPerson: true, defaultName: "蒜味烤餅" },
-      { key: "drink", label: "飲品口味（全體共用 ×2）", cat: "drink", type: "drink", perPerson: true, defaultName: "招牌香料奶茶（熱）" },
+      { key: "naan", label: "烤餅", cat: "naan", type: "naan", repeatPerPerson: true, defaultName: "蒜味烤餅" },
+      { key: "drink", label: "飲品", cat: "drink", type: "drink", repeatPerPerson: true, defaultName: "招牌香料奶茶（熱）" },
     ],
   },
   {
@@ -500,8 +522,8 @@ const GROUP_SET_TEMPLATES = [
       { key: "curry1", label: "咖哩 1", cat: "curry", type: "curry", defaultName: "濃郁奶香雞咖哩" },
       { key: "curry2", label: "咖哩 2", cat: "curry", type: "curry", defaultName: "經典藏印咖哩牛" },
       { key: "side1", label: "小食／傳統料理", cat: "traditional", type: "side", defaultName: "西藏MOMO記憶蒸餃(9顆) 牛肉" },
-      { key: "naan", label: "烤餅口味（全體共用 ×3）", cat: "naan", type: "naan", perPerson: true, defaultName: "蒜味烤餅" },
-      { key: "drink", label: "飲品口味（全體共用 ×3）", cat: "drink", type: "drink", perPerson: true, defaultName: "招牌香料奶茶（熱）" },
+      { key: "naan", label: "烤餅", cat: "naan", type: "naan", repeatPerPerson: true, defaultName: "蒜味烤餅" },
+      { key: "drink", label: "飲品", cat: "drink", type: "drink", repeatPerPerson: true, defaultName: "招牌香料奶茶（熱）" },
     ],
   },
   {
@@ -513,8 +535,8 @@ const GROUP_SET_TEMPLATES = [
       { key: "curry3", label: "咖哩 3", cat: "curry", type: "curry", defaultName: "經典藏印咖哩羊" },
       { key: "side1", label: "小食／傳統料理 1", cat: "traditional", type: "side", defaultName: "西藏MOMO記憶蒸餃(9顆) 牛肉" },
       { key: "side2", label: "小食／傳統料理 2", cat: "traditional", type: "side", defaultName: "藏式爆炒嗆嘴 牛" },
-      { key: "naan", label: "烤餅口味（全體共用 ×5）", cat: "naan", type: "naan", perPerson: true, defaultName: "蒜味烤餅" },
-      { key: "drink", label: "飲品口味（全體共用 ×5）", cat: "drink", type: "drink", perPerson: true, defaultName: "招牌香料奶茶（熱）" },
+      { key: "naan", label: "烤餅", cat: "naan", type: "naan", repeatPerPerson: true, defaultName: "蒜味烤餅" },
+      { key: "drink", label: "飲品", cat: "drink", type: "drink", repeatPerPerson: true, defaultName: "招牌香料奶茶（熱）" },
     ],
   },
 ];
@@ -882,38 +904,41 @@ function GroupSetPreviewCard({ set, onOpen }) {
 /* 多人套餐選項視窗：每一格都能換，換貴的補差額、換便宜的直接折，總金額即時更新；
    確認後拆成一般品項（咖哩／傳統料理／烤餅／主食／飲品分開），內場出單看板才看得到正確分類 */
 function GroupSetModal({ set, onConfirm, onClose }) {
+  const expandedSlots = expandGroupSetSlots(set);
   const [selections, setSelections] = useState(() => {
     const init = {};
-    set.slots.forEach((slot) => { init[slot.key] = slot.defaultName; });
+    expandedSlots.forEach((slot) => { init[slot.key] = slot.defaultName; });
     return init;
   });
   const [curryTabs, setCurryTabs] = useState(() => {
     const init = {};
-    set.slots.filter((s) => s.type === "curry").forEach((slot) => { init[slot.key] = proteinOfCurry(slot.defaultName); });
+    expandedSlots.filter((s) => s.type === "curry").forEach((slot) => { init[slot.key] = proteinOfCurry(slot.defaultName); });
     return init;
   });
 
-  const extrasTotal = set.slots.reduce((sum, slot) => {
+  const extrasTotal = expandedSlots.reduce((sum, slot) => {
     const baseline = findSlotOption(slot, slot.defaultName).price;
     const chosen = findSlotOption(slot, selections[slot.key]);
-    const mult = slot.perPerson ? set.people : 1;
-    return sum + (chosen.price - baseline) * mult;
+    return sum + (chosen.price - baseline);
   }, 0);
   const finalPrice = set.basePrice + extrasTotal;
 
   const handleConfirm = () => {
-    const lines = [];
-    set.slots.forEach((slot) => {
+    const raw = expandedSlots.map((slot) => {
       const chosen = findSlotOption(slot, selections[slot.key]);
-      const qty = slot.perPerson ? set.people : 1;
-      lines.push({ id: `${set.id}-${slot.key}-${chosen.name}`, name: chosen.name, price: chosen.price, qty, cat: slot.cat });
+      return { name: chosen.name, price: chosen.price, cat: slot.cat, qty: 1 };
     });
-    lines.push({ id: `${set.id}-rice`, name: "泰香飯", price: 20, qty: set.people, cat: "staple" });
+    raw.push({ name: "泰香飯", price: 20, cat: "staple", qty: set.people });
+    const merged = mergeGroupSetLines(raw);
+    const lines = merged.map((m) => ({ id: `${set.id}-${m.cat}-${m.name}`, name: m.name, price: m.price, qty: m.qty, cat: m.cat }));
     const actualSum = lines.reduce((s, l) => s + l.price * l.qty, 0);
     const discount = finalPrice - actualSum;
     lines.push({ id: `${set.id}-discount-${Date.now()}`, name: `🎉 ${set.people}人套餐優惠`, price: discount, qty: 1, cat: "combo" });
     onConfirm(lines);
   };
+
+  const mainSlots = set.slots.filter((s) => !s.repeatPerPerson);
+  const personSlots = set.slots.filter((s) => s.repeatPerPerson);
 
   return (
     <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: "rgba(59,46,34,.55)" }}>
@@ -927,7 +952,7 @@ function GroupSetModal({ set, onConfirm, onClose }) {
         </div>
         <p className="text-xs mb-4" style={{ color: "var(--ink)", opacity: 0.7 }}>每一項都可以換，換比較貴的會加價、換比較便宜的直接折扣，選好按最下面加入購物車。</p>
 
-        {set.slots.map((slot) => {
+        {mainSlots.map((slot) => {
           const baseline = findSlotOption(slot, slot.defaultName).price;
           const options = slot.type === "curry" ? GROUP_CURRY_OPTIONS[curryTabs[slot.key]] : slotOptionList(slot);
           return (
@@ -950,7 +975,7 @@ function GroupSetModal({ set, onConfirm, onClose }) {
               <div className="flex gap-1.5 flex-wrap">
                 {options.map((opt) => {
                   const isSel = selections[slot.key] === opt.name;
-                  const delta = (opt.price - baseline) * (slot.perPerson ? set.people : 1);
+                  const delta = opt.price - baseline;
                   return (
                     <button
                       key={opt.name}
@@ -965,6 +990,45 @@ function GroupSetModal({ set, onConfirm, onClose }) {
                         </span>
                       )}
                     </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+
+        {personSlots.map((slot) => {
+          const baseline = findSlotOption(slot, slot.defaultName).price;
+          const options = slotOptionList(slot);
+          return (
+            <div key={slot.key} className="mb-4">
+              <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--ink)" }}>{slot.label}口味（每位可以選不一樣的）</p>
+              <div className="space-y-1.5">
+                {Array.from({ length: set.people }, (_, i) => {
+                  const pKey = `${slot.key}${i + 1}`;
+                  return (
+                    <div key={pKey} className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] shrink-0 opacity-60" style={{ color: "var(--ink)", width: 40 }}>第{i + 1}位</span>
+                      {options.map((opt) => {
+                        const isSel = selections[pKey] === opt.name;
+                        const delta = opt.price - baseline;
+                        return (
+                          <button
+                            key={opt.name}
+                            onClick={() => setSelections((s) => ({ ...s, [pKey]: opt.name }))}
+                            className="text-[11px] font-medium px-2 py-1 rounded-full border flex items-center gap-1"
+                            style={{ borderColor: isSel ? "var(--maroon)" : "var(--line)", background: isSel ? "var(--maroon)" : "transparent", color: isSel ? "var(--paper)" : "var(--ink)" }}
+                          >
+                            {opt.name}
+                            {delta !== 0 && (
+                              <span style={{ fontFamily: "var(--font-mono)", color: isSel ? "var(--paper)" : delta > 0 ? "var(--saffron)" : "var(--juniper)", opacity: isSel ? 0.9 : 1 }}>
+                                {delta > 0 ? "+" : ""}{delta}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   );
                 })}
               </div>
