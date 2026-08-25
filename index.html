@@ -412,6 +412,29 @@ function comboLineName(tier, choices) {
   return `套餐${tier.tier}／${tier.name}（${parts}）`;
 }
 
+/* 多人套餐：主廚固定搭好組合，整單用一行帶進購物車／出單（跟 A/B/C 套餐一樣的做法），
+   飲品給客人選一種、全體共用。品項固定用蒜味烤餅＋泰香飯配，價格抓「單點加總」再打約85折。 */
+const GROUP_SET_DRINK_CHOICES = ["招牌香料奶茶（熱）", "招牌香料奶茶（冰）", "酥油茶（熱）"];
+const GROUP_SET_MEALS = [
+  {
+    id: "gset2", people: 2, price: 980,
+    mains: "濃郁奶香雞咖哩＋經典藏印咖哩牛＋藏原清爽自養優格碗",
+    sides: (drink) => `蒜味烤餅×2＋泰香飯×2＋${drink}×2`,
+  },
+  {
+    id: "gset3", people: 3, price: 1180,
+    mains: "濃郁奶香雞咖哩＋經典藏印咖哩牛＋西藏MOMO記憶蒸餃(9顆) 牛肉",
+    sides: (drink) => `蒜味烤餅×3＋泰香飯×3＋${drink}×3`,
+  },
+  {
+    id: "gset5", people: 5, price: 1980,
+    mains: "濃郁奶香雞咖哩＋經典藏印咖哩牛＋經典藏印咖哩羊＋西藏MOMO記憶蒸餃(9顆) 牛肉＋藏式爆炒嗆嘴 牛",
+    sides: (drink) => `蒜味烤餅×5＋泰香飯×5＋${drink}×5`,
+  },
+];
+/* 單點加總（跟套餐售價的差額就是客人省到的錢），算式對照 mains/sides 的實際單點價格加總 */
+const GROUP_SET_ALACARTE = { gset2: 1150, gset3: 1390, gset5: 2370 };
+
 /* 出單分類：咖哩／西藏經典料理／烤餅／主食／飲品／套餐 */
 const CAT_ORDER = ["curry", "traditional", "naan", "staple", "drink", "combo", "other"];
 const CAT_LABEL = {
@@ -738,6 +761,54 @@ function ComboTierCard({ tier, onAdd }) {
       ))}
       <div className="flex items-center justify-between mt-3 pt-2" style={{ borderTop: "1px dashed var(--line)" }}>
         <p style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="text-base font-bold">+{total}</p>
+        <AddButton onAdd={handleAdd} />
+      </div>
+    </div>
+  );
+}
+
+/* 多人套餐卡：飲品全體共用選一種，加入購物車／出單都是同一行，跟單點咖哩分開列 */
+function GroupSetCard({ set, onAdd }) {
+  const [drink, setDrink] = useState(GROUP_SET_DRINK_CHOICES[0]);
+  const alacarte = GROUP_SET_ALACARTE[set.id];
+  const savings = alacarte - set.price;
+
+  const handleAdd = () => {
+    const name = `🍛 ${set.people}人套餐（${set.mains}＋${set.sides(drink)}）`;
+    onAdd({ id: `${set.id}-${drink}`, name, price: set.price, cat: "curry" });
+  };
+
+  return (
+    <div className="card p-4 relative" style={{ borderColor: "var(--saffron)", borderWidth: 2 }}>
+      <span className="absolute -top-2.5 left-3 text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "var(--maroon)", color: "var(--paper)" }}>
+        {set.people}人套餐
+      </span>
+      <p className="text-sm font-bold mt-1.5 leading-snug" style={{ color: "var(--ink)" }}>{set.mains}</p>
+      <p className="text-xs mt-1.5 opacity-70 leading-relaxed" style={{ color: "var(--ink)" }}>{set.sides(drink)}</p>
+      <div className="mt-2.5">
+        <p className="text-[11px] font-semibold opacity-60 mb-1" style={{ color: "var(--ink)" }}>飲品口味（全體共用）</p>
+        <div className="flex gap-1.5 flex-wrap">
+          {GROUP_SET_DRINK_CHOICES.map((label) => {
+            const isSel = drink === label;
+            return (
+              <button
+                key={label}
+                onClick={() => setDrink(label)}
+                className="text-[12px] font-medium px-2.5 py-1 rounded-full border"
+                style={{ borderColor: isSel ? "var(--maroon)" : "var(--line)", background: isSel ? "var(--maroon)" : "transparent", color: isSel ? "var(--paper)" : "var(--ink)" }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="flex items-center justify-between mt-3 pt-2" style={{ borderTop: "1px dashed var(--line)" }}>
+        <div>
+          <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink)", opacity: 0.5, textDecoration: "line-through" }} className="text-xs mr-1.5">{fmt(alacarte)}</span>
+          <span style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="text-base font-bold">{fmt(set.price)}</span>
+          <span className="text-[10px] ml-1.5 font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "var(--juniper)", color: "var(--paper)" }}>省{fmt(savings)}</span>
+        </div>
         <AddButton onAdd={handleAdd} />
       </div>
     </div>
@@ -1759,6 +1830,13 @@ function App() {
               <option value="" disabled>請選擇</option>
               {TABLES.map((t) => (<option key={t} value={t}>第 {t} 桌</option>))}
             </select>
+          </div>
+
+          {/* 多人套餐：主廚固定搭好組合，適合揪團直接一鍵加入，不用一道一道慢慢點 */}
+          <SectionHeader zh="多人套餐" en="GROUP SET MEALS" icon={Sparkles} />
+          <p className="text-sm mb-3" style={{ color: "var(--ink)", opacity: 0.7 }}>主廚幫你配好，適合朋友聚餐直接一鍵加入，比單點划算。</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
+            {GROUP_SET_MEALS.map((set) => (<GroupSetCard key={set.id} set={set} onAdd={addLine} />))}
           </div>
 
           {/* Section 1：建構你的咖哩 */}
