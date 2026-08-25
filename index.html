@@ -121,6 +121,18 @@ async function fetchBoardOrders() {
   return [...(active || []), ...(served || [])].map(rowToOrder);
 }
 
+/* 給顧客看自己這一桌點過什麼用的：只抓「這一桌」的訂單，不會看到其他桌的資料 */
+async function fetchTableOrders(tableNo) {
+  if (!sb || !tableNo) return [];
+  const { data, error } = await sb
+    .from("orders")
+    .select("*")
+    .eq("table_no", tableNo)
+    .order("created_at", { ascending: false });
+  if (error) console.error("讀取本桌訂單失敗", error);
+  return (data || []).map(rowToOrder);
+}
+
 async function fetchReportOrders(startDate, endDate) {
   if (!sb) return [];
   const { data, error } = await sb
@@ -883,6 +895,54 @@ function SwipeToDelete({ onDelete, children, pill = false }) {
   );
 }
 
+/* 右滑完成：每做完一道菜，往右滑過門檻就切換完成狀態（跟 SwipeToDelete 方向相反、顏色是綠色） */
+function SwipeToComplete({ onTrigger, children }) {
+  const [dx, setDx] = useState(0);
+  const dxRef = useRef(0);
+  const dragging = useRef(false);
+  const startX = useRef(0);
+  const THRESHOLD = 70;
+  const maxDrag = 120;
+
+  const onPointerDown = (e) => {
+    dragging.current = true;
+    startX.current = e.clientX;
+  };
+  const onPointerMove = (e) => {
+    if (!dragging.current) return;
+    const delta = Math.max(0, Math.min(e.clientX - startX.current, maxDrag));
+    dxRef.current = delta;
+    setDx(delta);
+  };
+  const finish = () => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    if (dxRef.current > THRESHOLD) {
+      onTrigger();
+    }
+    dxRef.current = 0;
+    setDx(0);
+  };
+
+  return (
+    <div className="relative">
+      <div className="absolute inset-0 flex items-center pl-4 rounded" style={{ background: "var(--juniper)" }}>
+        <Check size={14} color="var(--paper)" />
+      </div>
+      <div
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={finish}
+        onPointerLeave={finish}
+        onPointerCancel={finish}
+        style={{ transform: `translateX(${dx}px)`, transition: dragging.current ? "none" : "transform .2s ease", touchAction: "pan-y", background: "var(--paper)" }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment, onDelete }) {
   const allDone = o.items.length > 0 && o.items.every((i) => i.done);
   const grouped = {};
@@ -891,31 +951,43 @@ function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment, onDele
     if (!grouped[c]) grouped[c] = [];
     grouped[c].push(i);
   });
+  const handleDelete = () => {
+    if (window.confirm(`確定要刪除第 ${o.table} 桌這張訂單嗎？這個動作無法復原。`)) {
+      onDelete(o.id);
+    }
+  };
   return (
-    <SwipeToDelete onDelete={() => onDelete(o.id)}>
     <div className="ticket p-3.5">
       <div className="flex items-center justify-between mb-1.5">
         <span style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-lg font-bold">第 {o.table} 桌</span>
-        <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: elapsed.color, color: "var(--paper)" }}>
-          {elapsed.mins} 分鐘
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: elapsed.color, color: "var(--paper)" }}>
+            {elapsed.mins} 分鐘
+          </span>
+          <button onClick={handleDelete} title="刪除這張訂單" className="flex items-center justify-center rounded-full opacity-50" style={{ width: 18, height: 18, color: "var(--maroon)" }}>
+            <X size={13} />
+          </button>
+        </div>
       </div>
       <p style={{ fontFamily: "var(--font-mono)" }} className="text-xs opacity-60 mb-2">
         #{o.id.slice(-6)}．{new Date(o.createdAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
       </p>
+      <p className="text-[10px] mb-2 opacity-50" style={{ color: "var(--ink)" }}>每一項向右滑過去，標記這道菜完成</p>
       <div className="mb-2 space-y-1.5">
         {CAT_ORDER.filter((c) => grouped[c] && grouped[c].length > 0).map((c) => (
           <div key={c} className="rounded-md overflow-hidden" style={{ border: `1.5px solid ${CAT_COLOR[c]}` }}>
             <p className="text-[10px] font-bold px-2 py-1" style={{ background: CAT_COLOR[c], color: "var(--paper)" }}>{CAT_LABEL[c]}</p>
             <div className="px-1.5">
               {grouped[c].map((i) => (
-                <button key={i.id} onClick={() => onToggleItem(o.id, i.id)} className="w-full flex items-center gap-2 py-1.5 text-left">
-                  <span className="inline-flex items-center justify-center rounded shrink-0" style={{ width: 18, height: 18, border: `2px solid ${i.done ? "var(--juniper)" : "var(--line)"}`, background: i.done ? "var(--juniper)" : "transparent" }}>
-                    {i.done && <Check size={12} color="var(--paper)" />}
-                  </span>
-                  <span style={{ fontFamily: "var(--font-mono)", textDecoration: i.done ? "line-through" : "none", opacity: i.done ? 0.45 : 1 }} className="text-sm flex-1">{i.name}</span>
-                  <span style={{ fontFamily: "var(--font-mono)", opacity: i.done ? 0.45 : 1 }} className="text-sm">x{i.qty}</span>
-                </button>
+                <SwipeToComplete key={i.id} onTrigger={() => onToggleItem(o.id, i.id)}>
+                  <button onClick={() => onToggleItem(o.id, i.id)} className="w-full flex items-center gap-2 py-1.5 text-left">
+                    <span className="inline-flex items-center justify-center rounded shrink-0" style={{ width: 18, height: 18, border: `2px solid ${i.done ? "var(--juniper)" : "var(--line)"}`, background: i.done ? "var(--juniper)" : "transparent" }}>
+                      {i.done && <Check size={12} color="var(--paper)" />}
+                    </span>
+                    <span style={{ fontFamily: "var(--font-mono)", textDecoration: i.done ? "line-through" : "none", opacity: i.done ? 0.45 : 1 }} className="text-sm flex-1">{i.name}</span>
+                    <span style={{ fontFamily: "var(--font-mono)", opacity: i.done ? 0.45 : 1 }} className="text-sm">x{i.qty}</span>
+                  </button>
+                </SwipeToComplete>
               ))}
             </div>
           </div>
@@ -934,7 +1006,6 @@ function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment, onDele
         {allDone ? "✓ 全部完成，出餐" : "完成出餐"}
       </button>
     </div>
-    </SwipeToDelete>
   );
 }
 
@@ -1140,6 +1211,21 @@ function App() {
   const [showAddonUpsell, setShowAddonUpsell] = useState(false);
   const [showCartPanel, setShowCartPanel] = useState(false);
   const closeCartPanel = () => setShowCartPanel(false);
+  const [myOrders, setMyOrders] = useState([]);
+
+  const refreshMyOrders = useCallback(() => {
+    if (!table) { setMyOrders([]); return; }
+    fetchTableOrders(table).then(setMyOrders);
+  }, [table]);
+
+  useEffect(() => { refreshMyOrders(); }, [refreshMyOrders]);
+
+  /* 購物車面板打開時，順便輪詢一下本桌訂單狀態（例如廚房出餐了），不用手動重開才會更新 */
+  useEffect(() => {
+    if (!showCartPanel) return;
+    const t = setInterval(refreshMyOrders, 15000);
+    return () => clearInterval(t);
+  }, [showCartPanel, refreshMyOrders]);
   const prevNewCount = useRef(0);
 
   /* ---------------- 員工模式：顧客只看得到點餐頁，內場/報表/QR 要輸入 PIN 才會出現 ---------------- */
@@ -1274,11 +1360,11 @@ function App() {
       return;
     }
     refresh();
+    refreshMyOrders();
     setConfirmMsg(`扎西德勒！訂單已送達內場，桌號 ${table}．單號 ${newOrder.id.slice(-6)}`);
     setCart([]);
     setNote("");
     setProtein(null);
-    setShowCartPanel(false);
     setTimeout(() => setSubmitting(false), 2500);
     setTimeout(() => setConfirmMsg(null), 4500);
   };
@@ -1460,10 +1546,44 @@ function App() {
               <button onClick={() => setShowCartPanel(false)} style={{ color: "var(--paper)" }}><X size={18} /></button>
             </div>
             <div className="flex-1 overflow-y-auto px-4 py-3">
+              {myOrders.length > 0 && (
+                <div className="mb-4 pb-4" style={{ borderBottom: "1px dashed var(--maroon-dark)" }}>
+                  <p className="text-xs font-bold mb-2" style={{ color: "var(--saffron)" }}>已送出的訂單</p>
+                  <div className="space-y-2.5">
+                    {myOrders.map((o) => (
+                      <div key={o.id} className="rounded-lg p-2.5" style={{ background: "var(--maroon-dark)" }}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px]" style={{ color: "var(--paper)", opacity: 0.7, fontFamily: "var(--font-mono)" }}>
+                            {new Date(o.createdAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}．單號 {o.id.slice(-6)}
+                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: o.status === "served" ? "var(--juniper)" : "var(--saffron)", color: o.status === "served" ? "var(--paper)" : "var(--maroon-dark)" }}>
+                            {o.status === "served" ? "✓ 已出餐" : "準備中"}
+                          </span>
+                        </div>
+                        <div className="space-y-0.5">
+                          {o.items.map((i) => (
+                            <div key={i.id} className="flex items-center justify-between text-xs" style={{ color: "var(--paper)", opacity: 0.9 }}>
+                              <span>{i.name}</span>
+                              <span style={{ fontFamily: "var(--font-mono)" }}>x{i.qty}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center justify-between mt-1.5 pt-1.5" style={{ borderTop: "1px dashed rgba(255,255,255,.2)" }}>
+                          <span className="text-xs" style={{ color: "var(--paper)", opacity: 0.7 }}>小計</span>
+                          <span className="text-xs font-bold" style={{ color: "var(--paper)", fontFamily: "var(--font-mono)" }}>{fmt(o.total)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {cart.length === 0 ? (
-                <p className="text-sm text-center py-8" style={{ color: "var(--paper)", opacity: 0.7 }}>碗裡空空的🥲先點份咖哩吧！</p>
+                <p className="text-sm text-center py-4" style={{ color: "var(--paper)", opacity: 0.7 }}>
+                  {myOrders.length > 0 ? "還想再加點嗎？回到菜單挑選吧！" : "碗裡空空的🥲先點份咖哩吧！"}
+                </p>
               ) : (
                 <div className="space-y-2.5">
+                  {myOrders.length > 0 && <p className="text-xs font-bold" style={{ color: "var(--saffron)" }}>繼續加點</p>}
                   {cart.map((i) => (
                     <div key={i.id} className="flex items-center justify-between text-sm gap-1" style={{ color: "var(--paper)" }}>
                       <span className="flex-1">{i.name}</span>
