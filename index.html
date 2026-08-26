@@ -256,39 +256,39 @@ const CURRY_BASES = {
   chicken: [
     { id: "butter", name: "濃郁奶香雞咖哩", en: "Butter Chicken", price: 330, desc: "奶香濃厚層次分明，最多人點的招牌必吃。", featured: true, badge: "🔥 招牌藏印咖哩", needsPairing: true, photo: IMG_CURRY },
     { id: "tikka", name: "不簡單烤雞肉咖哩", en: "Chicken Tikka Masala", price: 330, desc: "基底咖哩醬加了鮮奶油提味，與番茄翻炒，口感更香濃，回味無窮。", featured: true, badge: "人氣No.1", needsPairing: true },
-    { id: "daal", name: "印式扁豆燉雞肉", en: "Daal Chicken", price: 310, desc: "印度家常扁豆泥與雞肉慢燉，口感似馬鈴薯醬，超級適合配飯沾餅。", featured: true, needsPairing: true },
-    { id: "palak", name: "菠醬雞肉綠咖哩", en: "Palak Chicken", price: 310, desc: "運用大量菠菜，現做打成泥，與雞肉燉煮出食材的鮮味，清爽不油膩。", featured: true, needsPairing: true },
+    { id: "daal", name: "印式扁豆燉雞肉", en: "Daal Chicken", price: 310, desc: "印度家常扁豆泥與雞肉慢燉，口感似馬鈴薯醬，超級適合配飯沾餅。", needsPairing: true },
+    { id: "palak", name: "菠醬雞肉綠咖哩", en: "Palak Chicken", price: 310, desc: "運用大量菠菜，現做打成泥，與雞肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
   ],
   beef: [
     { id: "classic", name: "經典藏印咖哩牛", en: "Beef Curry", price: 330, desc: "數種香料與大塊牛肉同時熬出的咖哩醬底，肉質Q軟嫩牙，濃郁化在嘴中。", featured: true, needsPairing: true },
     { id: "daal", name: "印式扁豆燉牛", en: "Daal Beef", price: 330, desc: "印度家常扁豆泥與牛肉慢燉，口感似馬鈴薯醬，每口都吃得到家鄉味。", featured: true, needsPairing: true },
-    { id: "palak", name: "菠醬綠咖哩牛", en: "Palak Beef", price: 330, desc: "運用大量菠菜現打成泥，再與牛肉燉煮出食材的鮮味，清爽不油膩。", featured: true, needsPairing: true },
-    { id: "keema", name: "碎炒牛肉咖哩", en: "Keema Curry", price: 330, desc: "主廚快火爆炒出碎絞肉香氣，與馬鈴薯燉煮出濃厚的肉咖哩，相當下飯。", featured: true, needsPairing: true },
-    { id: "coconut", name: "南洋椰香牛肉", en: "Coconut Beef", price: 330, desc: "加入南洋椰奶原汁，就像奔放在印度洋上，熱情的一道菜。", featured: true, needsPairing: true },
+    { id: "palak", name: "菠醬綠咖哩牛", en: "Palak Beef", price: 330, desc: "運用大量菠菜現打成泥，再與牛肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
+    { id: "keema", name: "碎炒牛肉咖哩", en: "Keema Curry", price: 330, desc: "主廚快火爆炒出碎絞肉香氣，與馬鈴薯燉煮出濃厚的肉咖哩，相當下飯。", needsPairing: true },
+    { id: "coconut", name: "南洋椰香牛肉", en: "Coconut Beef", price: 330, desc: "加入南洋椰奶原汁，就像奔放在印度洋上，熱情的一道菜。", needsPairing: true },
   ],
   mutton: [
     { id: "classic", name: "經典藏印咖哩羊", en: "Mutton Curry", price: 360, desc: "數種香料與帶骨羊肉同時熬出的咖哩醬底，肉質Q軟嫩牙，濃郁化在嘴中。", featured: true, needsPairing: true },
     { id: "daal", name: "印式扁豆燉羊", en: "Daal Mutton", price: 360, desc: "印度家常扁豆泥與羊肉慢燉，口感似馬鈴薯醬，每口都吃得到家鄉味。", featured: true, needsPairing: true },
-    { id: "palak", name: "菠醬綠咖哩羊", en: "Palak Mutton", price: 360, desc: "運用大量菠菜現打成泥，再與羊肉燉煮出食材的鮮味，清爽不油膩。", featured: true, needsPairing: true },
+    { id: "palak", name: "菠醬綠咖哩羊", en: "Palak Mutton", price: 360, desc: "運用大量菠菜現打成泥，再與羊肉燉煮出食材的鮮味，清爽不油膩。", needsPairing: true },
   ],
   veg: [
     { id: "creamy_paneer", name: "濃郁奶香帕尼咖哩", en: "Creamy Butter Paneer", price: 330, desc: "手工乳酪塊以鮮奶油與腰果醬燉煮，綿密香甜，蔬食者的濃郁新選擇。", featured: true, badge: "新品", needsPairing: true },
     { id: "palak_paneer", name: "綠菠菠帕尼咖哩", en: "Palak Paneer", price: 330, desc: "大量菠菜現打成泥加上高原豆腐乳酪，口感Q軟咀嚼著乳清香，清爽不油膩。", featured: true, needsPairing: true },
-    { id: "daal", name: "燉煮印式扁豆", en: "Daal Curry", price: 230, desc: "印度人日常吃的一道料理，扁豆泥與番茄燉煮，超適合配飯沾餅，最具代表的印度家常菜。", featured: true, needsPairing: true },
-    { id: "mixed", name: "什錦綜合蔬菜", en: "Mixed Vegetable Curry", price: 300, desc: "帶有香香的新鮮綜合時蔬，蔬菜含水量較高，與濃郁咖哩醬搭配起來清爽溫順不膩口。", featured: true, needsPairing: true },
-    { id: "aloo", name: "花椰菜烤炒洋芋", en: "Aloo Gobi", price: 300, desc: "數種香料快火翻炒著花椰菜與馬鈴薯，實在意想不到的食材組合。", featured: true, needsPairing: true },
+    { id: "daal", name: "燉煮印式扁豆", en: "Daal Curry", price: 230, desc: "印度人日常吃的一道料理，扁豆泥與番茄燉煮，超適合配飯沾餅，最具代表的印度家常菜。", needsPairing: true },
+    { id: "mixed", name: "什錦綜合蔬菜", en: "Mixed Vegetable Curry", price: 300, desc: "帶有香香的新鮮綜合時蔬，蔬菜含水量較高，與濃郁咖哩醬搭配起來清爽溫順不膩口。", needsPairing: true },
+    { id: "aloo", name: "花椰菜烤炒洋芋", en: "Aloo Gobi", price: 300, desc: "數種香料快火翻炒著花椰菜與馬鈴薯，實在意想不到的食材組合。", needsPairing: true },
   ],
 };
 
 /* 西藏傳統料理：牛/羊、豬/牛 這種只是「口味/部位」差異的品項，合併成一張卡＋口味選擇 */
 const TRADITIONAL_GROUPED = [
   {
-    id: "shapta", name: "藏式爆炒嗆嘴", en: "Shapta", featured: true, photo: IMG_TRADITIONAL,
+    id: "shapta", name: "藏式爆炒嗆嘴", en: "Shapta", photo: IMG_TRADITIONAL,
     desc: "獨門香料的大火快炒，特殊嗆感，搭配清爽蔬菜＆脆口洋蔥，彷彿奔放在草原鄉野。",
     variants: [{ key: "beef", label: "牛", price: 260 }, { key: "mutton", label: "羊", price: 280 }],
   },
   {
-    id: "phingshya", name: "藏式品夏奶香阿嚕", en: "Phingshya", featured: true,
+    id: "phingshya", name: "藏式品夏奶香阿嚕", en: "Phingshya",
     desc: "軟嫩馬鈴薯Q彈粉粒再佐以奶香起司入菜，新意與心思多層次呈現，只吃一口便覺盛情難卻。",
     variants: [{ key: "beef", label: "牛", price: 300 }, { key: "mutton", label: "羊", price: 320 }],
   },
@@ -302,7 +302,7 @@ const TRADITIONAL_GROUPED = [
     variants: [{ key: "pork", label: "豬肉", price: 170 }, { key: "beef", label: "牛肉", price: 190 }],
   },
   {
-    id: "raita", name: "藏原清爽自養優格碗", en: "Raita", price: 130, featured: true,
+    id: "raita", name: "藏原清爽自養優格碗", en: "Raita", price: 130,
     desc: "獨門香料混合自製優格與碎小黃瓜、番茄、蒸鷹嘴豆or扁豆泥，逆轉你的味蕾。",
   },
 ];
@@ -2076,14 +2076,7 @@ function App() {
             </select>
           </div>
 
-          {/* 多人套餐：主廚固定搭好組合，適合揪團直接一鍵加入，不用一道一道慢慢點 */}
-          <SectionHeader zh="多人套餐" en="GROUP SET MEALS" icon={Sparkles} />
-          <p className="text-sm mb-3" style={{ color: "var(--ink)", opacity: 0.7 }}>主廚幫你配好，適合朋友聚餐直接一鍵加入，比單點划算。</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
-            {GROUP_SET_TEMPLATES.map((set) => (<GroupSetPreviewCard key={set.id} set={set} onOpen={setOpeningGroupSet} />))}
-          </div>
-
-          {/* Section 1：建構你的咖哩 */}
+          {/* Section 1：建構你的咖哩（放在最前面，是最主要的點餐方式，不要被多人套餐擋住） */}
           <SectionHeader zh="建構你的藏印咖哩" en="BUILD YOUR CURRY" icon={Sparkles} />
           <p className="text-sm mb-3" style={{ color: "var(--ink)", opacity: 0.7 }}>三步驟：先選蛋白質，再選喜歡的醬底，最後別忘了挑你想搭配的主食。</p>
           <NoticeBox>咖哩不附白飯或烤餅，記得從下方「人氣搭配主食」選一份主食搭配，吃起來才夠味！</NoticeBox>
@@ -2100,6 +2093,13 @@ function App() {
           {!protein && (
             <p className="text-sm mb-8 opacity-50" style={{ color: "var(--ink)" }}>👆 先選一種蛋白質，馬上看到適合的咖哩口味。</p>
           )}
+
+          {/* 多人套餐：主廚固定搭好組合，適合揪團直接一鍵加入，不用一道一道慢慢點 */}
+          <SectionHeader zh="多人套餐" en="GROUP SET MEALS" icon={Sparkles} />
+          <p className="text-sm mb-3" style={{ color: "var(--ink)", opacity: 0.7 }}>主廚幫你配好，適合朋友聚餐直接一鍵加入，比單點划算。</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
+            {GROUP_SET_TEMPLATES.map((set) => (<GroupSetPreviewCard key={set.id} set={set} onOpen={setOpeningGroupSet} />))}
+          </div>
 
           {/* Section 2：人氣搭配主食（套餐＋烤餅＋主食＋加價購 整合在一起） */}
           <SectionHeader zh="人氣搭配主食" en="PAIR YOUR CURRY" icon={Flame} />
