@@ -444,8 +444,8 @@ const GROUP_CURRY_OPTIONS = {
 };
 const GROUP_SIDE_OPTIONS = [
   { name: "藏原清爽自養優格碗", price: 130 },
-  { name: "西藏MOMO記憶蒸餃(9顆) 豬肉", price: 170 },
-  { name: "西藏MOMO記憶蒸餃(9顆) 牛肉", price: 190 },
+  { name: "西藏MOMO記憶蒸餃(9顆) 豬肉", shortName: "西藏MOMO記憶蒸餃 豬肉", price: 170 },
+  { name: "西藏MOMO記憶蒸餃(9顆) 牛肉", shortName: "西藏MOMO記憶蒸餃 牛肉", price: 190 },
   { name: "藏印爐烤雞塊", price: 280 },
   { name: "藏式爆炒嗆嘴 牛", price: 260 },
   { name: "藏式爆炒嗆嘴 羊", price: 280 },
@@ -511,7 +511,7 @@ const GROUP_SET_TEMPLATES = [
       { key: "curry1", label: "咖哩 1", cat: "curry", type: "curry", defaultName: "濃郁奶香雞咖哩" },
       { key: "curry2", label: "咖哩 2", cat: "curry", type: "curry", defaultName: "經典藏印咖哩牛" },
       { key: "side1", label: "小食／傳統料理", cat: "traditional", type: "side", defaultName: "藏原清爽自養優格碗" },
-      { key: "naan", label: "烤餅", cat: "naan", type: "naan", repeatPerPerson: true, defaultName: "蒜味烤餅" },
+      { key: "naan", label: "烤餅", cat: "naan", type: "naan", repeatPerPerson: true, defaultName: "原味烤餅" },
       { key: "drink", label: "飲品", cat: "drink", type: "drink", repeatPerPerson: true, defaultName: "招牌香料奶茶（熱）" },
     ],
   },
@@ -522,7 +522,7 @@ const GROUP_SET_TEMPLATES = [
       { key: "curry1", label: "咖哩 1", cat: "curry", type: "curry", defaultName: "濃郁奶香雞咖哩" },
       { key: "curry2", label: "咖哩 2", cat: "curry", type: "curry", defaultName: "經典藏印咖哩牛" },
       { key: "side1", label: "小食／傳統料理", cat: "traditional", type: "side", defaultName: "西藏MOMO記憶蒸餃(9顆) 牛肉" },
-      { key: "naan", label: "烤餅", cat: "naan", type: "naan", repeatPerPerson: true, defaultName: "蒜味烤餅" },
+      { key: "naan", label: "烤餅", cat: "naan", type: "naan", repeatPerPerson: true, defaultName: "原味烤餅" },
       { key: "drink", label: "飲品", cat: "drink", type: "drink", repeatPerPerson: true, defaultName: "招牌香料奶茶（熱）" },
     ],
   },
@@ -535,13 +535,13 @@ const GROUP_SET_TEMPLATES = [
       { key: "curry3", label: "咖哩 3", cat: "curry", type: "curry", defaultName: "經典藏印咖哩羊" },
       { key: "side1", label: "小食／傳統料理 1", cat: "traditional", type: "side", defaultName: "西藏MOMO記憶蒸餃(9顆) 牛肉" },
       { key: "side2", label: "小食／傳統料理 2", cat: "traditional", type: "side", defaultName: "藏式爆炒嗆嘴 牛" },
-      { key: "naan", label: "烤餅", cat: "naan", type: "naan", repeatPerPerson: true, defaultName: "蒜味烤餅" },
+      { key: "naan", label: "烤餅", cat: "naan", type: "naan", repeatPerPerson: true, defaultName: "原味烤餅" },
       { key: "drink", label: "飲品", cat: "drink", type: "drink", repeatPerPerson: true, defaultName: "招牌香料奶茶（熱）" },
     ],
   },
 ];
 /* 預覽卡上顯示的「單點加總」，等於全部維持預設選項時的實際單點總價 */
-const GROUP_SET_ALACARTE = { gset2: 1150, gset3: 1390, gset5: 2370 };
+const GROUP_SET_ALACARTE = { gset2: 1110, gset3: 1330, gset5: 2270 };
 
 /* 出單分類：咖哩／西藏經典料理／烤餅／主食／飲品／套餐 */
 const CAT_ORDER = ["curry", "traditional", "naan", "staple", "drink", "combo", "other"];
@@ -983,7 +983,7 @@ function GroupSetModal({ set, onConfirm, onClose }) {
                       className="text-[12px] font-medium px-2.5 py-1.5 rounded-full border flex items-center gap-1"
                       style={{ borderColor: isSel ? "var(--maroon)" : "var(--line)", background: isSel ? "var(--maroon)" : "transparent", color: isSel ? "var(--paper)" : "var(--ink)" }}
                     >
-                      {opt.name}
+                      {opt.shortName || opt.name}
                       {delta !== 0 && (
                         <span style={{ fontFamily: "var(--font-mono)", color: isSel ? "var(--paper)" : delta > 0 ? "var(--saffron)" : "var(--juniper)", opacity: isSel ? 0.9 : 1 }}>
                           {delta > 0 ? "+" : ""}{delta}
@@ -1002,7 +1002,7 @@ function GroupSetModal({ set, onConfirm, onClose }) {
           const options = slotOptionList(slot);
           return (
             <div key={slot.key} className="mb-4">
-              <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--ink)" }}>{slot.label}口味（每位可以選不一樣的）</p>
+              <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--ink)" }}>{slot.label}口味</p>
               <div className="space-y-1.5">
                 {Array.from({ length: set.people }, (_, i) => {
                   const pKey = `${slot.key}${i + 1}`;
