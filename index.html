@@ -477,7 +477,20 @@ const GROUP_SET_TEMPLATES = [
 ];
 const GROUP_NAAN_DEFAULT_PRICE = GROUP_NAAN_OPTIONS.find((o) => o.name === GROUP_NAAN_DEFAULT).price;
 const GROUP_DRINK_DEFAULT_PRICE = GROUP_DRINK_OPTIONS.find((o) => o.name === GROUP_DRINK_DEFAULT).price;
-/* 單點加總：主餐價格加總，再加上泰香飯／原味烤餅／招牌香料奶茶（熱）各 sideCount 份的原價 */
+const COMBO_C_PRICE = COMBO_TIERS.find((c) => c.id === "comboC").price;
+const COMBO_A_PRICE = COMBO_TIERS.find((c) => c.id === "comboA").price;
+
+/* 卡片上劃線的「原價」：主餐維持單點價加總，配餐（飯＋烤餅＋飲料）改用「陽春套餐C」＋「招牌套餐A」
+   的套餐價格計算（客人原本單點也可以用這兩個套餐湊到飯+烤餅+飲料，比三樣分開單點便宜），
+   這樣原價才公平反映「不買多人套餐，自己湊的話最省要花多少」。 */
+function groupSetOriginalPrice(set) {
+  const mainsSum = set.mainItems.reduce((s, m) => s + m.price, 0);
+  const sidesSum = set.sideCount * (COMBO_C_PRICE + COMBO_A_PRICE);
+  return mainsSum + sidesSum;
+}
+
+/* 「省多少」小字固定用純單點價格算（飯／烤餅／飲料都各自單點價，不套用套餐優惠），
+   跟上面的「原價」是兩個不同基準，省的金額看起來才是真的跟單點一樣一樣買比較出來的。 */
 function groupSetAlacarte(set) {
   const mainsSum = set.mainItems.reduce((s, m) => s + m.price, 0);
   const sidesSum = set.sideCount * (20 + GROUP_NAAN_DEFAULT_PRICE + GROUP_DRINK_DEFAULT_PRICE);
@@ -818,8 +831,8 @@ function ComboTierCard({ tier, onAdd }) {
 
 /* 多人套餐預覽卡：只顯示大概內容跟起價，點「選擇品項」才進到可以換選項的視窗 */
 function GroupSetPreviewCard({ set, onOpen }) {
-  const alacarte = groupSetAlacarte(set);
-  const savings = alacarte - set.price;
+  const originalPrice = groupSetOriginalPrice(set);
+  const savings = groupSetAlacarte(set) - set.price;
   return (
     <div className="card p-4 relative flex flex-col" style={{ borderColor: "var(--saffron)", borderWidth: 2 }}>
       <span className="absolute -top-2.5 left-3 text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "var(--maroon)", color: "var(--paper)" }}>
@@ -830,7 +843,7 @@ function GroupSetPreviewCard({ set, onOpen }) {
       <p className="text-[11px] mt-1.5 font-medium" style={{ color: "var(--juniper)" }}>烤餅／飲品可換口味補價差，主餐固定不更換</p>
       <div className="flex items-center justify-between mt-3 pt-2" style={{ borderTop: "1px dashed var(--line)" }}>
         <div>
-          <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink)", opacity: 0.5, textDecoration: "line-through" }} className="text-xs mr-1.5">{fmt(alacarte)}</span>
+          <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink)", opacity: 0.5, textDecoration: "line-through" }} className="text-xs mr-1.5">{fmt(originalPrice)}</span>
           <span style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="text-base font-bold">{fmt(set.price)} 起</span>
           <span className="text-[10px] ml-1.5 font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "var(--juniper)", color: "var(--paper)" }}>省{fmt(savings)}</span>
         </div>
