@@ -122,13 +122,17 @@ async function fetchBoardOrders() {
   return [...(active || []), ...(served || [])].map(rowToOrder);
 }
 
-/* 給顧客看自己這一桌點過什麼用的：只抓「這一桌」的訂單，不會看到其他桌的資料 */
+/* 給顧客看自己這一桌點過什麼用的：只抓「這一桌」「今天」的訂單，不會看到其他桌的資料，
+   也不會把前一組（甚至前一天）用過這張桌號的客人訂單殘留在畫面上造成混淆 */
 async function fetchTableOrders(tableNo) {
   if (!sb || !tableNo) return [];
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
   const { data, error } = await sb
     .from("orders")
     .select("*")
     .eq("table_no", tableNo)
+    .gte("created_at", startOfToday.toISOString())
     .order("created_at", { ascending: false });
   if (error) console.error("讀取本桌訂單失敗", error);
   return (data || []).map(rowToOrder);
@@ -277,6 +281,8 @@ const CURRY_BASES = {
     { id: "daal", name: "燉煮印式扁豆", en: "Daal Curry", price: 230, desc: "印度人日常吃的一道料理，扁豆泥與番茄燉煮，超適合配飯沾餅，最具代表的印度家常菜。", needsPairing: true },
     { id: "mixed", name: "什錦綜合蔬菜", en: "Mixed Vegetable Curry", price: 300, desc: "帶有香香的新鮮綜合時蔬，蔬菜含水量較高，與濃郁咖哩醬搭配起來清爽溫順不膩口。", needsPairing: true },
     { id: "aloo", name: "花椰菜烤炒洋芋", en: "Aloo Gobi", price: 300, desc: "數種香料快火翻炒著花椰菜與馬鈴薯，實在意想不到的食材組合。", needsPairing: true },
+    { id: "chana", name: "恰那你的鷹嘴豆", en: "Chana Curry", price: 330, desc: "經典印度家常鷹嘴豆咖哩，番茄香料燉煮入味，蔬食者的蛋白質好選擇。", needsPairing: true },
+    { id: "palak_mixed", name: "菠醬什錦蔬菜", en: "Palak Mixed Vegetable", price: 330, desc: "大量菠菜現打成泥，與新鮮綜合時蔬燉煮，清爽不油膩。", needsPairing: true },
   ],
 };
 
@@ -322,7 +328,6 @@ const ADDONS = [
 
 const STAPLE = [
   { id: "s1", name: "泰香飯", en: "Rice", price: 20, desc: "最適合搭配藏印咖哩的黃金米粒口感，粒粒分明不軟爛。" },
-  { id: "s2", name: "藏式炸餅", en: "Tibetan Deep Fried Bread", price: 80, desc: "口感蓬鬆，香酥脆，滿滿的酥炸餅皮香。" },
   { id: "s3", name: "糌粑(5顆)", en: "Tsampa", price: 120, desc: "藏人最經典高山穀物，青稞製作，吃起來有豆餡口感，帶著淡淡麵茶的味道。" },
 ];
 
@@ -379,7 +384,7 @@ const NAAN_CHOICES = [
 const COMBO_TIERS = [
   { id: "comboC", tier: "C", name: "陽春吃法", price: 20, desc: "單純加一份泰香飯", ribbon: null, subChoices: [] },
   {
-    id: "comboA", tier: "A", name: "招牌吃法", price: 100, desc: "泰香飯＋烤餅＋飲料", ribbon: "🔥 多數人這樣點",
+    id: "comboA", tier: "A", name: "招牌吃法", price: 100, desc: "烤餅＋飲料", ribbon: "🔥 多數人這樣點",
     subChoices: [
       { key: "naan", label: "烤餅口味", options: NAAN_CHOICES },
       { key: "drink", label: "飲料口味", options: DRINK_CHOICES },
@@ -412,46 +417,10 @@ function comboLineName(tier, choices) {
   return `套餐${tier.tier}／${tier.name}（${parts}）`;
 }
 
-/* 多人套餐：客人可以自己換每一格的品項（咖哩／小食／烤餅／飲品），換貴的補差額、換便宜的直接折。
-   加入購物車時拆成一般品項（跟單點咖哩一樣的分類），內場出單看板才看得到咖哩／傳統料理／烤餅…等分類，
-   不是整包糊成一行。折扣統一用一行「🎉 X人套餐優惠」呈現，折扣金額固定＝套餐基本價－單點加總（換選項不影響）。 */
-const GROUP_CURRY_OPTIONS = {
-  chicken: [
-    { name: "濃郁奶香雞咖哩", price: 330 },
-    { name: "不簡單烤雞肉咖哩", price: 330 },
-    { name: "印式扁豆燉雞肉", price: 310 },
-    { name: "菠醬雞肉綠咖哩", price: 310 },
-  ],
-  beef: [
-    { name: "經典藏印咖哩牛", price: 330 },
-    { name: "印式扁豆燉牛", price: 330 },
-    { name: "菠醬綠咖哩牛", price: 330 },
-    { name: "碎炒牛肉咖哩", price: 330 },
-    { name: "南洋椰香牛肉", price: 330 },
-  ],
-  mutton: [
-    { name: "經典藏印咖哩羊", price: 360 },
-    { name: "印式扁豆燉羊", price: 360 },
-    { name: "菠醬綠咖哩羊", price: 360 },
-  ],
-  veg: [
-    { name: "濃郁奶香帕尼咖哩", price: 330 },
-    { name: "綠菠菠帕尼咖哩", price: 330 },
-    { name: "燉煮印式扁豆", price: 230 },
-    { name: "什錦綜合蔬菜", price: 300 },
-    { name: "花椰菜烤炒洋芋", price: 300 },
-  ],
-};
-const GROUP_SIDE_OPTIONS = [
-  { name: "藏原清爽自養優格碗", price: 130 },
-  { name: "西藏MOMO記憶蒸餃(9顆) 豬肉", shortName: "西藏MOMO記憶蒸餃 豬肉", price: 170 },
-  { name: "西藏MOMO記憶蒸餃(9顆) 牛肉", shortName: "西藏MOMO記憶蒸餃 牛肉", price: 190 },
-  { name: "藏印爐烤雞塊", price: 280 },
-  { name: "藏式爆炒嗆嘴 牛", price: 260 },
-  { name: "藏式爆炒嗆嘴 羊", price: 280 },
-  { name: "藏式品夏奶香阿嚕 牛", price: 300 },
-  { name: "藏式品夏奶香阿嚕 羊", price: 320 },
-];
+/* 多人套餐：主餐（咖哩／傳統料理）固定搭配、不能更換，只有烤餅跟飲品可以換口味（補價差），
+   每位客人可以各自挑自己的烤餅／飲品口味。加入購物車時拆成一般品項（跟單點咖哩一樣的分類），
+   內場出單看板才看得到咖哩／傳統料理／烤餅…等分類，不是整包糊成一行。折扣統一用一行
+   「🎉 X人套餐優惠」呈現，折扣金額＝單點加總（用目前菜單價格即時算）－套餐售價。 */
 const GROUP_NAAN_OPTIONS = [
   { name: "原味烤餅", price: 60 },
   { name: "蒜味烤餅", price: 80 },
@@ -463,36 +432,10 @@ const GROUP_DRINK_OPTIONS = [
   { name: "招牌香料奶茶（冰）", price: 80 },
   { name: "酥油茶（熱）", price: 80 },
 ];
+const GROUP_NAAN_DEFAULT = "原味烤餅";
+const GROUP_DRINK_DEFAULT = "招牌香料奶茶（熱）";
 
-function slotOptionList(slot) {
-  if (slot.type === "curry") return Object.values(GROUP_CURRY_OPTIONS).flat();
-  if (slot.type === "side") return GROUP_SIDE_OPTIONS;
-  if (slot.type === "naan") return GROUP_NAAN_OPTIONS;
-  if (slot.type === "drink") return GROUP_DRINK_OPTIONS;
-  return [];
-}
-function findSlotOption(slot, name) {
-  return slotOptionList(slot).find((o) => o.name === name);
-}
-function proteinOfCurry(name) {
-  for (const [protein, list] of Object.entries(GROUP_CURRY_OPTIONS)) {
-    if (list.some((o) => o.name === name)) return protein;
-  }
-  return "chicken";
-}
-/* 烤餅／飲品是「每人可以選不同的」，展開成一人一格（key 加上序號），其餘品項維持一格 */
-function expandGroupSetSlots(set) {
-  const out = [];
-  set.slots.forEach((slot) => {
-    if (slot.repeatPerPerson) {
-      for (let i = 1; i <= set.people; i++) out.push({ ...slot, key: `${slot.key}${i}` });
-    } else {
-      out.push(slot);
-    }
-  });
-  return out;
-}
-/* 同名同分類的品項（例如三個人都選蒜味烤餅）合併成一行，內場出單看板才不會出現三條一樣的東西 */
+/* 同名同分類的品項（例如兩個人都選原味烤餅）合併成一行，內場出單看板才不會出現一堆重複的單行 */
 function mergeGroupSetLines(rawItems) {
   const map = new Map();
   rawItems.forEach((r) => {
@@ -505,43 +448,41 @@ function mergeGroupSetLines(rawItems) {
 
 const GROUP_SET_TEMPLATES = [
   {
-    id: "gset2", people: 2, basePrice: 980,
-    summary: "咖哩 ×2 ＋ 小食 ×1",
-    slots: [
-      { key: "curry1", label: "咖哩 1", cat: "curry", type: "curry", defaultName: "濃郁奶香雞咖哩" },
-      { key: "curry2", label: "咖哩 2", cat: "curry", type: "curry", defaultName: "經典藏印咖哩牛" },
-      { key: "side1", label: "小食／傳統料理", cat: "traditional", type: "side", defaultName: "藏原清爽自養優格碗" },
-      { key: "naan", label: "烤餅", cat: "naan", type: "naan", repeatPerPerson: true, defaultName: "原味烤餅" },
-      { key: "drink", label: "飲品", cat: "drink", type: "drink", repeatPerPerson: true, defaultName: "招牌香料奶茶（熱）" },
+    id: "gset2", label: "2人套餐", price: 980, sideCount: 2,
+    mainItems: [
+      { name: "濃郁奶香雞咖哩", price: 330, cat: "curry" },
+      { name: "經典藏印咖哩牛", price: 330, cat: "curry" },
+      { name: "藏原清爽自養優格碗", price: 130, cat: "traditional" },
     ],
   },
   {
-    id: "gset3", people: 3, basePrice: 1180,
-    summary: "咖哩 ×2 ＋ 小食 ×1",
-    slots: [
-      { key: "curry1", label: "咖哩 1", cat: "curry", type: "curry", defaultName: "濃郁奶香雞咖哩" },
-      { key: "curry2", label: "咖哩 2", cat: "curry", type: "curry", defaultName: "經典藏印咖哩牛" },
-      { key: "side1", label: "小食／傳統料理", cat: "traditional", type: "side", defaultName: "西藏MOMO記憶蒸餃(9顆) 牛肉" },
-      { key: "naan", label: "烤餅", cat: "naan", type: "naan", repeatPerPerson: true, defaultName: "原味烤餅" },
-      { key: "drink", label: "飲品", cat: "drink", type: "drink", repeatPerPerson: true, defaultName: "招牌香料奶茶（熱）" },
+    id: "gset3", label: "3人套餐", price: 1020, sideCount: 2,
+    mainItems: [
+      { name: "濃郁奶香雞咖哩", price: 330, cat: "curry" },
+      { name: "經典藏印咖哩牛", price: 330, cat: "curry" },
+      { name: "西藏MOMO記憶蒸餃(9顆) 牛肉", price: 190, cat: "traditional" },
     ],
   },
   {
-    id: "gset5", people: 5, basePrice: 1980,
-    summary: "咖哩 ×3 ＋ 小食 ×2",
-    slots: [
-      { key: "curry1", label: "咖哩 1", cat: "curry", type: "curry", defaultName: "濃郁奶香雞咖哩" },
-      { key: "curry2", label: "咖哩 2", cat: "curry", type: "curry", defaultName: "經典藏印咖哩牛" },
-      { key: "curry3", label: "咖哩 3", cat: "curry", type: "curry", defaultName: "經典藏印咖哩羊" },
-      { key: "side1", label: "小食／傳統料理 1", cat: "traditional", type: "side", defaultName: "西藏MOMO記憶蒸餃(9顆) 牛肉" },
-      { key: "side2", label: "小食／傳統料理 2", cat: "traditional", type: "side", defaultName: "藏式爆炒嗆嘴 牛" },
-      { key: "naan", label: "烤餅", cat: "naan", type: "naan", repeatPerPerson: true, defaultName: "原味烤餅" },
-      { key: "drink", label: "飲品", cat: "drink", type: "drink", repeatPerPerson: true, defaultName: "招牌香料奶茶（熱）" },
+    id: "gset5", label: "5人套餐", price: 2150, sideCount: 4,
+    mainItems: [
+      { name: "濃郁奶香雞咖哩", price: 330, cat: "curry" },
+      { name: "經典藏印咖哩牛", price: 330, cat: "curry" },
+      { name: "經典藏印咖哩羊", price: 360, cat: "curry" },
+      { name: "菠醬什錦蔬菜", price: 330, cat: "curry" },
+      { name: "西藏MOMO記憶蒸餃(9顆) 牛肉", price: 190, cat: "traditional" },
+      { name: "藏印爐烤雞塊", price: 280, cat: "traditional" },
     ],
   },
 ];
-/* 預覽卡上顯示的「單點加總」，等於全部維持預設選項時的實際單點總價 */
-const GROUP_SET_ALACARTE = { gset2: 1110, gset3: 1330, gset5: 2270 };
+const GROUP_NAAN_DEFAULT_PRICE = GROUP_NAAN_OPTIONS.find((o) => o.name === GROUP_NAAN_DEFAULT).price;
+const GROUP_DRINK_DEFAULT_PRICE = GROUP_DRINK_OPTIONS.find((o) => o.name === GROUP_DRINK_DEFAULT).price;
+/* 單點加總：主餐價格加總，再加上泰香飯／原味烤餅／招牌香料奶茶（熱）各 sideCount 份的原價 */
+function groupSetAlacarte(set) {
+  const mainsSum = set.mainItems.reduce((s, m) => s + m.price, 0);
+  const sidesSum = set.sideCount * (20 + GROUP_NAAN_DEFAULT_PRICE + GROUP_DRINK_DEFAULT_PRICE);
+  return mainsSum + sidesSum;
+}
 
 /* 出單分類：咖哩／西藏經典料理／烤餅／主食／飲品／套餐 */
 const CAT_ORDER = ["curry", "traditional", "naan", "staple", "drink", "combo", "other"];
@@ -877,113 +818,103 @@ function ComboTierCard({ tier, onAdd }) {
 
 /* 多人套餐預覽卡：只顯示大概內容跟起價，點「選擇品項」才進到可以換選項的視窗 */
 function GroupSetPreviewCard({ set, onOpen }) {
-  const alacarte = GROUP_SET_ALACARTE[set.id];
-  const savings = alacarte - set.basePrice;
+  const alacarte = groupSetAlacarte(set);
+  const savings = alacarte - set.price;
   return (
     <div className="card p-4 relative flex flex-col" style={{ borderColor: "var(--saffron)", borderWidth: 2 }}>
       <span className="absolute -top-2.5 left-3 text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "var(--maroon)", color: "var(--paper)" }}>
-        {set.people}人套餐
+        {set.label}
       </span>
-      <p className="text-sm font-bold mt-1.5" style={{ color: "var(--ink)" }}>{set.summary}</p>
-      <p className="text-xs mt-1.5 opacity-70" style={{ color: "var(--ink)" }}>烤餅×{set.people}．泰香飯×{set.people}．飲品×{set.people}</p>
-      <p className="text-[11px] mt-1.5 font-medium" style={{ color: "var(--juniper)" }}>✓ 每一項都可以換自己喜歡的口味</p>
+      <p className="text-sm font-bold mt-1.5 leading-snug" style={{ color: "var(--ink)" }}>{set.mainItems.map((m) => m.name).join("＋")}</p>
+      <p className="text-xs mt-1.5 opacity-70" style={{ color: "var(--ink)" }}>泰香飯×{set.sideCount}．原味烤餅×{set.sideCount}．招牌香料奶茶×{set.sideCount}</p>
+      <p className="text-[11px] mt-1.5 font-medium" style={{ color: "var(--juniper)" }}>烤餅／飲品可換口味補價差，主餐固定不更換</p>
       <div className="flex items-center justify-between mt-3 pt-2" style={{ borderTop: "1px dashed var(--line)" }}>
         <div>
           <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink)", opacity: 0.5, textDecoration: "line-through" }} className="text-xs mr-1.5">{fmt(alacarte)}</span>
-          <span style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="text-base font-bold">{fmt(set.basePrice)} 起</span>
+          <span style={{ fontFamily: "var(--font-mono)", color: "var(--maroon)" }} className="text-base font-bold">{fmt(set.price)} 起</span>
           <span className="text-[10px] ml-1.5 font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "var(--juniper)", color: "var(--paper)" }}>省{fmt(savings)}</span>
         </div>
         <button onClick={() => onOpen(set)} className="px-3 py-2 rounded-md text-xs font-semibold" style={{ background: "var(--saffron)", color: "var(--maroon-dark)" }}>
-          選擇品項
+          選擇口味
         </button>
       </div>
     </div>
   );
 }
 
-/* 多人套餐選項視窗：每一格都能換，換貴的補差額、換便宜的直接折，總金額即時更新；
+/* 多人套餐選項視窗：主餐固定不能換，只有烤餅／飲品能換口味（補價差），每位客人各自挑；
    確認後拆成一般品項（咖哩／傳統料理／烤餅／主食／飲品分開），內場出單看板才看得到正確分類 */
 function GroupSetModal({ set, onConfirm, onClose }) {
-  const expandedSlots = expandGroupSetSlots(set);
   const [selections, setSelections] = useState(() => {
     const init = {};
-    expandedSlots.forEach((slot) => { init[slot.key] = slot.defaultName; });
-    return init;
-  });
-  const [curryTabs, setCurryTabs] = useState(() => {
-    const init = {};
-    expandedSlots.filter((s) => s.type === "curry").forEach((slot) => { init[slot.key] = proteinOfCurry(slot.defaultName); });
+    for (let i = 1; i <= set.sideCount; i++) {
+      init[`naan${i}`] = GROUP_NAAN_DEFAULT;
+      init[`drink${i}`] = GROUP_DRINK_DEFAULT;
+    }
     return init;
   });
 
-  const extrasTotal = expandedSlots.reduce((sum, slot) => {
-    const baseline = findSlotOption(slot, slot.defaultName).price;
-    const chosen = findSlotOption(slot, selections[slot.key]);
-    return sum + (chosen.price - baseline);
+  const extrasTotal = Array.from({ length: set.sideCount }, (_, idx) => idx + 1).reduce((sum, i) => {
+    const naanOpt = GROUP_NAAN_OPTIONS.find((o) => o.name === selections[`naan${i}`]);
+    const drinkOpt = GROUP_DRINK_OPTIONS.find((o) => o.name === selections[`drink${i}`]);
+    return sum + (naanOpt.price - GROUP_NAAN_DEFAULT_PRICE) + (drinkOpt.price - GROUP_DRINK_DEFAULT_PRICE);
   }, 0);
-  const finalPrice = set.basePrice + extrasTotal;
+  const finalPrice = set.price + extrasTotal;
 
   const handleConfirm = () => {
-    const raw = expandedSlots.map((slot) => {
-      const chosen = findSlotOption(slot, selections[slot.key]);
-      return { name: chosen.name, price: chosen.price, cat: slot.cat, qty: 1 };
-    });
-    raw.push({ name: "泰香飯", price: 20, cat: "staple", qty: set.people });
+    const raw = set.mainItems.map((m) => ({ name: m.name, price: m.price, cat: m.cat, qty: 1 }));
+    raw.push({ name: "泰香飯", price: 20, cat: "staple", qty: set.sideCount });
+    for (let i = 1; i <= set.sideCount; i++) {
+      const naanOpt = GROUP_NAAN_OPTIONS.find((o) => o.name === selections[`naan${i}`]);
+      const drinkOpt = GROUP_DRINK_OPTIONS.find((o) => o.name === selections[`drink${i}`]);
+      raw.push({ name: naanOpt.name, price: naanOpt.price, cat: "naan", qty: 1 });
+      raw.push({ name: drinkOpt.name, price: drinkOpt.price, cat: "drink", qty: 1 });
+    }
     const merged = mergeGroupSetLines(raw);
     const lines = merged.map((m) => ({ id: `${set.id}-${m.cat}-${m.name}`, name: m.name, price: m.price, qty: m.qty, cat: m.cat }));
     const actualSum = lines.reduce((s, l) => s + l.price * l.qty, 0);
     const discount = finalPrice - actualSum;
-    lines.push({ id: `${set.id}-discount-${Date.now()}`, name: `🎉 ${set.people}人套餐優惠`, price: discount, qty: 1, cat: "combo" });
+    lines.push({ id: `${set.id}-discount-${Date.now()}`, name: `🎉 ${set.label}優惠`, price: discount, qty: 1, cat: "combo" });
     onConfirm(lines);
   };
-
-  const mainSlots = set.slots.filter((s) => !s.repeatPerPerson);
-  const personSlots = set.slots.filter((s) => s.repeatPerPerson);
 
   return (
     <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: "rgba(59,46,34,.55)" }}>
       <div className="card w-full sm:max-w-lg p-5 slide-up" style={{ borderRadius: "16px 16px 0 0", maxHeight: "88vh", overflowY: "auto" }}>
         <div className="flex items-start justify-between mb-1">
           <div>
-            <p className="text-xs opacity-60" style={{ color: "var(--ink)" }}>{set.people}人套餐．基本價 {fmt(set.basePrice)}</p>
-            <h3 style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-lg font-bold">選擇這桌想吃的品項</h3>
+            <p className="text-xs opacity-60" style={{ color: "var(--ink)" }}>{set.label}．基本價 {fmt(set.price)}</p>
+            <h3 style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-lg font-bold">選擇烤餅與飲品口味</h3>
           </div>
           <button onClick={onClose} title="關閉" className="p-1 opacity-50"><X size={18} /></button>
         </div>
-        <p className="text-xs mb-4" style={{ color: "var(--ink)", opacity: 0.7 }}>每一項都可以換，換比較貴的會加價、換比較便宜的直接折扣，選好按最下面加入購物車。</p>
 
-        {mainSlots.map((slot) => {
-          const baseline = findSlotOption(slot, slot.defaultName).price;
-          const options = slot.type === "curry" ? GROUP_CURRY_OPTIONS[curryTabs[slot.key]] : slotOptionList(slot);
-          return (
-            <div key={slot.key} className="mb-4">
-              <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--ink)" }}>{slot.label}</p>
-              {slot.type === "curry" && (
-                <div className="flex gap-1 mb-1.5 flex-wrap">
-                  {PROTEINS.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => setCurryTabs((t) => ({ ...t, [slot.key]: p.id }))}
-                      className="text-[11px] font-medium px-2 py-1 rounded-full border"
-                      style={{ borderColor: curryTabs[slot.key] === p.id ? "var(--maroon)" : "var(--line)", background: curryTabs[slot.key] === p.id ? "var(--maroon)" : "transparent", color: curryTabs[slot.key] === p.id ? "var(--paper)" : "var(--ink)" }}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div className="flex gap-1.5 flex-wrap">
-                {options.map((opt) => {
-                  const isSel = selections[slot.key] === opt.name;
-                  const delta = opt.price - baseline;
+        <div className="mb-4 rounded-lg p-3" style={{ background: "var(--cream)" }}>
+          <p className="text-xs font-semibold mb-1" style={{ color: "var(--ink)" }}>主餐（固定搭配，恕不更換）</p>
+          <ul className="text-xs leading-relaxed" style={{ color: "var(--ink)", opacity: 0.85 }}>
+            {set.mainItems.map((m) => (<li key={m.name}>・{m.name}</li>))}
+          </ul>
+        </div>
+
+        <p className="text-xs mb-4" style={{ color: "var(--ink)", opacity: 0.7 }}>烤餅、飲品可以換口味補價差，每位客人各自挑，選好按最下面加入購物車。</p>
+
+        <div className="mb-4">
+          <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--ink)" }}>烤餅口味</p>
+          <div className="space-y-1.5">
+            {Array.from({ length: set.sideCount }, (_, i) => i + 1).map((i) => (
+              <div key={`naan${i}`} className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] shrink-0 opacity-60" style={{ color: "var(--ink)", width: 40 }}>第{i}位</span>
+                {GROUP_NAAN_OPTIONS.map((opt) => {
+                  const isSel = selections[`naan${i}`] === opt.name;
+                  const delta = opt.price - GROUP_NAAN_DEFAULT_PRICE;
                   return (
                     <button
                       key={opt.name}
-                      onClick={() => setSelections((s) => ({ ...s, [slot.key]: opt.name }))}
-                      className="text-[12px] font-medium px-2.5 py-1.5 rounded-full border flex items-center gap-1"
+                      onClick={() => setSelections((s) => ({ ...s, [`naan${i}`]: opt.name }))}
+                      className="text-[11px] font-medium px-2 py-1 rounded-full border flex items-center gap-1"
                       style={{ borderColor: isSel ? "var(--maroon)" : "var(--line)", background: isSel ? "var(--maroon)" : "transparent", color: isSel ? "var(--paper)" : "var(--ink)" }}
                     >
-                      {opt.shortName || opt.name}
+                      {opt.name}
                       {delta !== 0 && (
                         <span style={{ fontFamily: "var(--font-mono)", color: isSel ? "var(--paper)" : delta > 0 ? "var(--saffron)" : "var(--juniper)", opacity: isSel ? 0.9 : 1 }}>
                           {delta > 0 ? "+" : ""}{delta}
@@ -993,48 +924,39 @@ function GroupSetModal({ set, onConfirm, onClose }) {
                   );
                 })}
               </div>
-            </div>
-          );
-        })}
+            ))}
+          </div>
+        </div>
 
-        {personSlots.map((slot) => {
-          const baseline = findSlotOption(slot, slot.defaultName).price;
-          const options = slotOptionList(slot);
-          return (
-            <div key={slot.key} className="mb-4">
-              <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--ink)" }}>{slot.label}口味</p>
-              <div className="space-y-1.5">
-                {Array.from({ length: set.people }, (_, i) => {
-                  const pKey = `${slot.key}${i + 1}`;
+        <div className="mb-4">
+          <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--ink)" }}>飲品口味</p>
+          <div className="space-y-1.5">
+            {Array.from({ length: set.sideCount }, (_, i) => i + 1).map((i) => (
+              <div key={`drink${i}`} className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] shrink-0 opacity-60" style={{ color: "var(--ink)", width: 40 }}>第{i}位</span>
+                {GROUP_DRINK_OPTIONS.map((opt) => {
+                  const isSel = selections[`drink${i}`] === opt.name;
+                  const delta = opt.price - GROUP_DRINK_DEFAULT_PRICE;
                   return (
-                    <div key={pKey} className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[11px] shrink-0 opacity-60" style={{ color: "var(--ink)", width: 40 }}>第{i + 1}位</span>
-                      {options.map((opt) => {
-                        const isSel = selections[pKey] === opt.name;
-                        const delta = opt.price - baseline;
-                        return (
-                          <button
-                            key={opt.name}
-                            onClick={() => setSelections((s) => ({ ...s, [pKey]: opt.name }))}
-                            className="text-[11px] font-medium px-2 py-1 rounded-full border flex items-center gap-1"
-                            style={{ borderColor: isSel ? "var(--maroon)" : "var(--line)", background: isSel ? "var(--maroon)" : "transparent", color: isSel ? "var(--paper)" : "var(--ink)" }}
-                          >
-                            {opt.name}
-                            {delta !== 0 && (
-                              <span style={{ fontFamily: "var(--font-mono)", color: isSel ? "var(--paper)" : delta > 0 ? "var(--saffron)" : "var(--juniper)", opacity: isSel ? 0.9 : 1 }}>
-                                {delta > 0 ? "+" : ""}{delta}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <button
+                      key={opt.name}
+                      onClick={() => setSelections((s) => ({ ...s, [`drink${i}`]: opt.name }))}
+                      className="text-[11px] font-medium px-2 py-1 rounded-full border flex items-center gap-1"
+                      style={{ borderColor: isSel ? "var(--maroon)" : "var(--line)", background: isSel ? "var(--maroon)" : "transparent", color: isSel ? "var(--paper)" : "var(--ink)" }}
+                    >
+                      {opt.name}
+                      {delta !== 0 && (
+                        <span style={{ fontFamily: "var(--font-mono)", color: isSel ? "var(--paper)" : delta > 0 ? "var(--saffron)" : "var(--juniper)", opacity: isSel ? 0.9 : 1 }}>
+                          {delta > 0 ? "+" : ""}{delta}
+                        </span>
+                      )}
+                    </button>
                   );
                 })}
               </div>
-            </div>
-          );
-        })}
+            ))}
+          </div>
+        </div>
 
         <div className="flex items-center justify-between mt-3 pt-3 mb-3" style={{ borderTop: "1px dashed var(--line)" }}>
           <span className="text-sm font-semibold" style={{ color: "var(--ink)" }}>套餐總金額</span>
@@ -1269,7 +1191,14 @@ function KitchenTicket({ o, elapsed, onToggleItem, onComplete, onPayment, onDele
   return (
     <div className="ticket p-3.5">
       <div className="flex items-center justify-between mb-1.5">
-        <span style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-lg font-bold">第 {o.table} 桌</span>
+        <div className="flex items-center gap-1.5">
+          <span style={{ fontFamily: "var(--font-display)", color: "var(--maroon)" }} className="text-lg font-bold">第 {o.table} 桌</span>
+          {o.roundTotal > 1 && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "var(--saffron)", color: "var(--maroon-dark)" }}>
+              本桌第 {o.roundNo}／{o.roundTotal} 份
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-1.5">
           <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: elapsed.color, color: "var(--paper)" }}>
             {elapsed.mins} 分鐘
@@ -1640,6 +1569,7 @@ function App() {
     }
   };
   const lockStaff = () => {
+    if (!window.confirm("確定要登出員工模式嗎？登出後要重新輸入 PIN 碼才能回到內場畫面。")) return;
     try { localStorage.removeItem(STAFF_UNLOCK_KEY); } catch {}
     setStaffUnlocked(false);
     setTab("order");
@@ -1808,6 +1738,15 @@ function App() {
   const activeOrders = orders.filter((o) => o.status === "active").sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   const servedOrders = orders.filter((o) => o.status === "served").sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10);
 
+  /* 同一桌如果同時有兩張以上進行中的訂單，標出「本桌第幾份」，內場才不會誤以為是同一張單 */
+  const tableActiveTotal = {};
+  activeOrders.forEach((o) => { tableActiveTotal[o.table] = (tableActiveTotal[o.table] || 0) + 1; });
+  const tableActiveSeen = {};
+  const activeOrdersWithRound = activeOrders.map((o) => {
+    tableActiveSeen[o.table] = (tableActiveSeen[o.table] || 0) + 1;
+    return { ...o, roundNo: tableActiveSeen[o.table], roundTotal: tableActiveTotal[o.table] };
+  });
+
   const elapsedInfo = (createdAt) => {
     const mins = Math.floor((now - new Date(createdAt).getTime()) / 60000);
     let color = "var(--juniper)";
@@ -1950,13 +1889,15 @@ function App() {
             <div className="flex-1 overflow-y-auto px-4 py-3">
               {myOrders.length > 0 && (
                 <div className="mb-4 pb-4" style={{ borderBottom: "1px dashed var(--maroon-dark)" }}>
-                  <p className="text-xs font-bold mb-2" style={{ color: "var(--saffron)" }}>已送出的訂單</p>
+                  <p className="text-xs font-bold mb-2" style={{ color: "var(--saffron)" }}>
+                    已送出的訂單{myOrders.length > 1 ? `（今天共 ${myOrders.length} 份，分開結帳／出餐）` : ""}
+                  </p>
                   <div className="space-y-2.5">
-                    {myOrders.map((o) => (
+                    {myOrders.map((o, idx) => (
                       <div key={o.id} className="rounded-lg p-2.5" style={{ background: "var(--maroon-dark)" }}>
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-[11px]" style={{ color: "var(--paper)", opacity: 0.7, fontFamily: "var(--font-mono)" }}>
-                            {new Date(o.createdAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}．單號 {o.id.slice(-6)}
+                            第 {myOrders.length - idx} 份．{new Date(o.createdAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}．單號 {o.id.slice(-6)}
                           </span>
                           <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: o.status === "served" ? "var(--juniper)" : "var(--saffron)", color: o.status === "served" ? "var(--paper)" : "var(--maroon-dark)" }}>
                             {o.status === "served" ? "✓ 已出餐" : "準備中"}
@@ -2173,7 +2114,7 @@ function App() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-2">
-            {activeOrders.map((o) => (
+            {activeOrdersWithRound.map((o) => (
               <KitchenTicket key={o.id} o={o} elapsed={elapsedInfo(o.createdAt)} onToggleItem={toggleItemDone} onComplete={completeOrder} onPayment={setPayment} onDelete={removeOrder} onEdit={setEditingOrder} />
             ))}
           </div>
