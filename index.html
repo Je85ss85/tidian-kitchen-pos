@@ -1671,9 +1671,14 @@ function App() {
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
   const hasAnchorDish = cart.some((i) => i.cat === "curry" || i.cat === "traditional");
   const needsAnchor = cart.length > 0 && !hasAnchorDish;
+  /* 套餐（泰香飯／烤餅／飲料組合）是咖哩的搭配主食，不能單獨點，也不能拿西藏傳統料理去搭，
+     購物車裡有套餐的話一定要同時有咖哩才能送出訂單 */
+  const hasComboInCart = cart.some((i) => i.cat === "combo");
+  const hasCurryInCart = cart.some((i) => i.cat === "curry");
+  const comboNeedsCurry = hasComboInCart && !hasCurryInCart;
 
   const submitOrder = async () => {
-    if (!table || cart.length === 0 || submitting || needsAnchor) return;
+    if (!table || cart.length === 0 || submitting || needsAnchor || comboNeedsCurry) return;
     setSubmitting(true);
     const newOrder = {
       id: genId(),
@@ -1962,13 +1967,18 @@ function App() {
                   <AlertCircle size={13} /> 還沒加咖哩或西藏傳統料理喔，單點烤餅／主食／飲品沒辦法單獨送出
                 </p>
               )}
+              {!needsAnchor && comboNeedsCurry && (
+                <p className="text-xs mb-2 flex items-center gap-1.5" style={{ color: "var(--saffron)" }}>
+                  <AlertCircle size={13} /> 套餐只能搭配咖哩一起點，無法單獨點套餐、也不能搭配其他傳統料理，請先加一份咖哩
+                </p>
+              )}
               <div className="flex items-center justify-between mb-2">
                 <span style={{ color: "var(--paper)" }} className="text-sm">{cartCount} 項</span>
                 <span style={{ fontFamily: "var(--font-mono)", color: "var(--paper)" }} className="text-sm font-bold">{fmt(cartTotal)}</span>
               </div>
-              <button onClick={submitOrder} disabled={!table || cart.length === 0 || submitting || needsAnchor} className="w-full px-5 py-2.5 rounded-md text-sm font-semibold"
-                style={{ background: !table || cart.length === 0 || submitting || needsAnchor ? "#8a7a5c" : "var(--saffron)", color: "var(--maroon-dark)", cursor: !table || cart.length === 0 || submitting || needsAnchor ? "not-allowed" : "pointer" }}>
-                {submitting ? "送出中…" : !table ? "請先選桌號" : needsAnchor ? "請先加咖哩或傳統料理" : "送出訂單"}
+              <button onClick={submitOrder} disabled={!table || cart.length === 0 || submitting || needsAnchor || comboNeedsCurry} className="w-full px-5 py-2.5 rounded-md text-sm font-semibold"
+                style={{ background: !table || cart.length === 0 || submitting || needsAnchor || comboNeedsCurry ? "#8a7a5c" : "var(--saffron)", color: "var(--maroon-dark)", cursor: !table || cart.length === 0 || submitting || needsAnchor || comboNeedsCurry ? "not-allowed" : "pointer" }}>
+                {submitting ? "送出中…" : !table ? "請先選桌號" : needsAnchor ? "請先加咖哩或傳統料理" : comboNeedsCurry ? "套餐請搭配咖哩" : "送出訂單"}
               </button>
             </div>
           </div>
@@ -2015,7 +2025,7 @@ function App() {
               來自高原的香料記憶。選好桌號，就從招牌藏印咖哩開始吧！
             </p>
             <span className="inline-block text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: "var(--maroon)", color: "var(--paper)" }}>
-              每人低消 NT$250
+              每人低消 NT$300
             </span>
             <img src={IMG_CURRY} alt="經典藏印咖哩" className="absolute top-0 right-0" style={{ width: 150, height: 150, objectFit: "contain", filter: "drop-shadow(-4px 4px 6px rgba(59,46,34,.4))" }} />
           </div>
@@ -2059,6 +2069,7 @@ function App() {
           <SectionHeader zh="人氣搭配主食" en="PAIR YOUR CURRY" icon={Flame} />
 
           <SubgroupLabel>套餐組合（最多人選）</SubgroupLabel>
+          <p className="text-xs mb-3 opacity-60" style={{ color: "var(--ink)" }}>套餐是咖哩的搭配主食，只能跟咖哩一起點，無法單獨點套餐，也不能搭配其他傳統料理。</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
             {COMBO_TIERS.map((c) => (<ComboTierCard key={c.id} tier={c} onAdd={addLine} />))}
           </div>
